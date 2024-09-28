@@ -12,3 +12,4 @@ sqlmodel==0.0.22
 orjson==3.10.7
 email_validator==2.2.0
 Werkzeug==3.0.4
+psycopg2-binary==2.9.9

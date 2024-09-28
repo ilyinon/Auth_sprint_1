@@ -19,6 +19,20 @@ services:
       redis:
         condition: service_healthy
         restart: true
+      migrate:
+        condition: service_completed_successfully
+
+  migrate:
+    build: app
+    command: alembic upgrade head
+    restart: on-failure
+    env_file:
+      - ./.env
+    # restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
 
   nginx:
     image: nginx:1.27.0-alpine

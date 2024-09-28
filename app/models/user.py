@@ -1,13 +1,11 @@
 from pydantic import EmailStr
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from sqlalchemy.ext.declarative import declarative_base
 
 
 from werkzeug.security import check_password_hash, generate_password_hash
 from models.mixin import IdMixin, TimestampMixin
-
-Base = declarative_base()
+from models.base import Base
 
 
 class User(IdMixin, TimestampMixin, Base):
