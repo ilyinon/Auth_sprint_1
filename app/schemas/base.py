@@ -1,9 +1,7 @@
-import orjson
-from pydantic import BaseModel
 from typing import List, Optional, Union
-from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+import orjson
+from pydantic import BaseModel, Field
 
 
 def orjson_dumps(v, *, default):
@@ -19,10 +17,12 @@ class OrjsonBaseModel(BaseModel):
 class HTTPExceptionResponse(OrjsonBaseModel):
     detail: str
 
+
 class ValidationError(BaseModel):
-    loc: List[Union[str, int]] = Field(..., title='Location')
-    msg: str = Field(..., title='Message')
-    type: str = Field(..., title='Error Type')
+    loc: List[Union[str, int]] = Field(..., title="Location")
+    msg: str = Field(..., title="Message")
+    type: str = Field(..., title="Error Type")
+
 
 class HTTPValidationError(BaseModel):
-    detail: Optional[List[ValidationError]] = Field(None, title='Detail')
+    detail: Optional[List[ValidationError]] = Field(None, title="Detail")

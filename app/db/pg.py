@@ -1,13 +1,8 @@
-import os
 from core.config import auth_settings
 from sqlalchemy import create_engine
-
+from sqlalchemy.ext import Session
 
 engine = create_engine(auth_settings.database_dsn, echo=True)
-
-
-def init_db():
-    SQLModel.metadata.create_all(engine)
 
 
 def get_session():

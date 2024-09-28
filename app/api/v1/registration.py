@@ -1,25 +1,22 @@
-import logging
+from typing import Union
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer
+from fastapi import APIRouter
+from fastapi.security import HTTPBearer  # noqa: F401
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
-
 from schemas.user import UserCreate, UserResponse
-from typing import List, Optional, Union
-from db.pg import get_session, init_db
 
 router = APIRouter()
 
 
 @router.post(
-    '/register',
+    "/register",
     response_model=UserResponse,
-    summary='User registration',
+    summary="User registration",
     responses={
-        '400': {'model': HTTPExceptionResponse},
-        '422': {'model': HTTPValidationError},
+        "400": {"model": HTTPExceptionResponse},
+        "422": {"model": HTTPValidationError},
     },
-    tags=['Registration'],
+    tags=["Registration"],
 )
 async def register(
     body: UserCreate,

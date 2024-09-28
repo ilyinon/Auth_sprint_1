@@ -26,3 +26,8 @@ status:
 
 logs:
 	docker-compose logs -f
+
+lint:
+	pre-commit install
+	flake8 app
+	isort app

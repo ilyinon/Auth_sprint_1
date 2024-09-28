@@ -30,7 +30,7 @@ class AuthSettings(BaseSettings):
     @property
     def redis_dsn(self):
         return f"redis://{self.redis_host}:{self.redis_port}"
-    
+
     @property
     def database_dsn(self):
         return f"postgresql://{self.pg_user}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}"

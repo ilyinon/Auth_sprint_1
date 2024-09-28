@@ -4,8 +4,6 @@ from db import redis
 from fastapi import FastAPI
 from fastapi.responses import ORJSONResponse
 from redis.asyncio import Redis
-from sqlmodel.ext.asyncio.session import AsyncSession
-
 
 app = FastAPI(
     title=auth_settings.project_name,
@@ -13,6 +11,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
     default_response_class=ORJSONResponse,
 )
+
 
 @app.on_event("startup")
 async def startup():
@@ -24,4 +23,4 @@ async def shutdown():
     await redis.redis.close()
 
 
-app.include_router(registration.router, prefix='/api/v1', tags=['Registration'])
+app.include_router(registration.router, prefix="/api/v1", tags=["Registration"])
