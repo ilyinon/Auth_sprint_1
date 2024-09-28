@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from pydantic import EmailStr, Field
@@ -19,3 +20,10 @@ class UserResponse(UserBase):
 
     class Config:
         orm_mode = True
+
+
+class UserPatch(OrjsonBaseModel):
+    email: Optional[EmailStr] = Field(None, title="Email")
+    full_name: Optional[str] = Field(None, title="Full Name")
+    password: Optional[str] = Field(None, title="Password")
+    username: Optional[str] = Field(None, title="Username")

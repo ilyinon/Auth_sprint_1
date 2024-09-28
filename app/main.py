@@ -1,4 +1,4 @@
-from api.v1 import registration
+from api.v1 import auth, roles, users
 from core.config import auth_settings
 from db import redis
 from fastapi import FastAPI
@@ -23,4 +23,6 @@ async def shutdown():
     await redis.redis.close()
 
 
-app.include_router(registration.router, prefix="/api/v1", tags=["Registration"])
+app.include_router(auth.router, prefix="/api/v1/auth")
+app.include_router(roles.router, prefix="/api/v1/roles")
+app.include_router(users.router, prefix="/api/v1/users")
