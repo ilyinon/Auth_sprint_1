@@ -10,9 +10,6 @@ from db.pg import get_session, init_db
 
 router = APIRouter()
 
-@router.get("/ping")
-async def pong():
-    return {"ping": "pong!"}
 
 @router.post(
     '/register',
@@ -22,7 +19,7 @@ async def pong():
         '400': {'model': HTTPExceptionResponse},
         '422': {'model': HTTPValidationError},
     },
-    tags=['Register'],
+    tags=['Registration'],
 )
 async def register(
     body: UserCreate,
