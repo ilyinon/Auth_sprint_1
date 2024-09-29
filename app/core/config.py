@@ -1,6 +1,7 @@
 import os
 from logging import config as logging_config
 
+from async_fastapi_jwt_auth import AuthJWT
 from core.logger import LOGGING
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,6 +28,9 @@ class AuthSettings(BaseSettings):
     pg_port: int
     pg_db: str
 
+    authjwt_secret_key: str
+    authjwt_algorithm: str = "HS256"
+
     @property
     def redis_dsn(self):
         return f"redis://{self.redis_host}:{self.redis_port}"
@@ -41,3 +45,8 @@ class AuthSettings(BaseSettings):
 
 
 auth_settings = AuthSettings()
+
+
+@AuthJWT.load_config
+def get_config():
+    return AuthSettings()

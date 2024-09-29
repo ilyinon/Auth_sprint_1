@@ -4,10 +4,11 @@ from core.logger import logger
 from fastapi import APIRouter, Depends, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
-from schemas.auth import Credentials, RefreshToken, TokenPair
+from schemas.auth import Credentials, RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
 from schemas.user import UserCreate, UserResponse
+from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
 
 router = APIRouter()
@@ -40,21 +41,23 @@ async def signup(
 
 @router.post(
     "/login",
-    response_model=TokenPair,
+    response_model=TwoTokens,
     summary="User login",
     responses={
-        "401": {"model": HTTPExceptionResponse},
-        "422": {"model": HTTPValidationError},
+        status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": HTTPValidationError},
     },
     tags=["Authorization"],
 )
-def login(
-    body: Credentials,
-) -> Union[TokenPair, HTTPExceptionResponse, HTTPValidationError]:
-    """
-    Log in
-    """
-    pass
+async def login(
+    credentials: Credentials, auth_service: AuthService = Depends(get_auth_service)
+) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
+    tokens = await auth_service.login(credentials)
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
+    return tokens
 
 
 @router.post(
@@ -73,7 +76,7 @@ def logout() -> Optional[HTTPExceptionResponse]:
 
 @router.post(
     "/refresh",
-    response_model=TokenPair,
+    response_model=TwoTokens,
     summary="Refresh tokens",
     responses={
         "401": {"model": HTTPExceptionResponse},
@@ -83,7 +86,7 @@ def logout() -> Optional[HTTPExceptionResponse]:
 )
 def refresh_tokens(
     body: RefreshToken,
-) -> Union[TokenPair, HTTPExceptionResponse, HTTPValidationError]:
+) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
     """
     Refresh token
     """

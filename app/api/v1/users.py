@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter
 from fastapi.security import HTTPBearer  # noqa: F401
 from pydantic import conint
-from schemas.auth import Credentials, RefreshToken, TokenPair  # noqa: F401
+from schemas.auth import Credentials, RefreshToken, TwoTokens  # noqa: F401
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
