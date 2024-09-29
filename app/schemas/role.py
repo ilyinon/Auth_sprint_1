@@ -21,3 +21,6 @@ class RoleBaseUUID(OrjsonBaseModel):
 
 class RoleResponse(RoleBaseUUID, RoleBase):
     pass
+
+    class Config:
+        orm_mode = True

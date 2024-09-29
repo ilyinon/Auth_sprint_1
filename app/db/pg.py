@@ -1,10 +1,15 @@
 from core.config import auth_settings
-from sqlalchemy import create_engine
-from sqlalchemy.ext import Session
+from sqlalchemy.orm import declarative_base
 
-engine = create_engine(auth_settings.database_dsn, echo=True)
+from sqlalchemy.ext.asyncio import create_async_engine  # isort: skip
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker  # isort: skip
+
+Base = declarative_base()
+
+engine = create_async_engine(auth_settings.database_dsn, echo=True, future=True)
+async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
-def get_session():
-    with Session(engine) as session:
+async def get_session() -> AsyncSession:
+    async with async_session() as session:
         yield session

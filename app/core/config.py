@@ -33,6 +33,10 @@ class AuthSettings(BaseSettings):
 
     @property
     def database_dsn(self):
+        return f"postgresql+asyncpg://{self.pg_user}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
+
+    @property
+    def database_dsn_not_async(self):
         return f"postgresql://{self.pg_user}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
 
 

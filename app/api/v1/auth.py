@@ -1,11 +1,14 @@
 from typing import List, Optional, Union
 
-from fastapi import APIRouter
+from core.logger import logger
+from fastapi import APIRouter, Depends, status
+from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
 from schemas.auth import Credentials, RefreshToken, TokenPair
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
 from schemas.user import UserCreate, UserResponse
+from services.user import UserService, get_user_service
 
 router = APIRouter()
 
@@ -15,18 +18,24 @@ router = APIRouter()
     response_model=UserResponse,
     summary="User registration",
     responses={
-        "400": {"model": HTTPExceptionResponse},
-        "422": {"model": HTTPValidationError},
+        status.HTTP_400_BAD_REQUEST: {"model": HTTPExceptionResponse},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": HTTPValidationError},
     },
     tags=["Registration"],
 )
 async def signup(
-    body: UserCreate,
+    user_create: UserCreate, user_service: UserService = Depends(get_user_service)
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
-    """
-    Registration
-    """
-    pass
+
+    is_exist_user = await user_service.get_user_by_email(user_create.email)
+    if is_exist_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The email is already in use",
+        )
+    logger.info(f"wanna create {user_create}")
+    created_new_user = await user_service.create_user(user_create)
+    return created_new_user
 
 
 @router.post(
