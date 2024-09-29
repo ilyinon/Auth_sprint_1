@@ -11,6 +11,9 @@ from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
 
+get_token = HTTPBearer(auto_error=False)
+
+
 router = APIRouter()
 
 
@@ -63,15 +66,21 @@ async def login(
 @router.post(
     "/logout",
     response_model=None,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="User logout",
-    responses={"401": {"model": HTTPExceptionResponse}},
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse}},
     tags=["Authorization"],
 )
-def logout() -> Optional[HTTPExceptionResponse]:
-    """
-    Log out
-    """
-    pass
+async def logout(
+    access_token: str = Depends(get_token),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> Optional[HTTPExceptionResponse]:
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
+    await auth_service.check_access()
+    await auth_service.logout()
 
 
 @router.post(

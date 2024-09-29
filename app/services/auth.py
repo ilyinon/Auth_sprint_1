@@ -1,5 +1,6 @@
 from functools import lru_cache
 from typing import Optional
+from uuid import UUID
 
 from async_fastapi_jwt_auth import AuthJWT
 from core.logger import logger
@@ -45,13 +46,17 @@ class AuthService:
 
         return TwoTokens(access_token=access_token, refresh_token=refresh_token)
 
-    async def logout():
+    async def check_access(self) -> None:
+        await self.auth_jwt.jwt_required()
+
+    async def logout(self) -> None:
+        access_jwt = await self.auth.jwt.get_raw_jwt()
+        await self.end_session(access_jwt["session_id"])
+
+    async def end_session(self, session_id: UUID):
         pass
 
     async def refresh_tokens():
-        pass
-
-    async def check_access():
         pass
 
 
