@@ -56,8 +56,8 @@ class AuthService:
     async def end_session(self, session_id: UUID):
         pass
 
-    async def refresh_tokens():
-        pass
+    async def refresh_tokens(self, refresh_token: str) -> Optional[TwoTokens]:
+        refresh_token = await self.auth_jwt.get_raw_jwt(refresh_token)
 
 
 @lru_cache()

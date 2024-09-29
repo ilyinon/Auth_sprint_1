@@ -1,10 +1,10 @@
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, Union
 
 from core.logger import logger
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Body, Depends, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
-from schemas.auth import Credentials, RefreshToken, TwoTokens
+from schemas.auth import Credentials, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
 from schemas.user import UserCreate, UserResponse
@@ -88,18 +88,21 @@ async def logout(
     response_model=TwoTokens,
     summary="Refresh tokens",
     responses={
-        "401": {"model": HTTPExceptionResponse},
-        "422": {"model": HTTPValidationError},
+        status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": HTTPValidationError},
     },
     tags=["Authorization"],
 )
-def refresh_tokens(
-    body: RefreshToken,
+async def refresh_tokens(
+    refresh_token: Annotated[str, Body(embed=True)],
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    """
-    Refresh token
-    """
-    pass
+    refreshed_tokens = await auth_service.refresh_tokens(refresh_token)
+    if not refreshed_tokens:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
+        )
+    return refreshed_tokens
 
 
 @router.get(

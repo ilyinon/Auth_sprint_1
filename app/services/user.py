@@ -35,7 +35,9 @@ class UserService:
         return user
 
     async def get_current_user(self) -> Optional[UserResponse]:
-        pass
+        user_id = await self.auth_jwt.get_jwt_subject()
+        get_user = await self.db.execute(select(User).where(User.id == user_id))
+        return get_user
 
 
 @lru_cache()

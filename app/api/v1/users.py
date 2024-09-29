@@ -1,7 +1,9 @@
 from typing import List, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter
+from async_fastapi_jwt_auth import AuthJWT
+from async_fastapi_jwt_auth.exceptions import MissingTokenError
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer  # noqa: F401
 from pydantic import conint
 from schemas.auth import Credentials, RefreshToken, TwoTokens  # noqa: F401
@@ -9,6 +11,10 @@ from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
 from schemas.user import UserPatch, UserResponse
+from services.user import UserService, get_user_service
+
+get_token = HTTPBearer(auto_error=False)
+
 
 router = APIRouter()
 
@@ -101,16 +107,29 @@ def take_away_role_from_user(
     response_model=UserResponse,
     summary="Get user details",
     responses={
-        "401": {"model": HTTPExceptionResponse},
-        "404": {"model": HTTPExceptionResponse},
+        status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse},
+        status.HTTP_404_NOT_FOUND: {"model": HTTPExceptionResponse},
     },
     tags=["User profile"],
 )
-def get_user_info() -> Union[UserResponse, HTTPExceptionResponse]:
-    """
-    Get user profile
-    """
-    pass
+async def get_user_info(
+    access_token: str = Depends(get_token),
+    auth_jwt: AuthJWT = Depends(),
+    user_service: UserService = Depends(get_user_service),
+) -> Union[UserResponse, HTTPExceptionResponse]:
+    try:
+        await auth_jwt.jwt_required()
+    except MissingTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
+
+    user = await user_service.get_current_user()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="No user to show"
+        )
+    return user
 
 
 @router.patch(
