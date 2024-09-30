@@ -11,5 +11,5 @@ class RefreshToken(OrjsonBaseModel):
     refresh_token: str
 
 
-class TokenPair(RefreshToken):
+class TwoTokens(RefreshToken):
     access_token: str

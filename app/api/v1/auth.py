@@ -1,14 +1,18 @@
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, Union
 
 from core.logger import logger
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Body, Depends, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
-from schemas.auth import Credentials, RefreshToken, TokenPair
+from schemas.auth import Credentials, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
 from schemas.user import UserCreate, UserResponse
+from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
+
+get_token = HTTPBearer(auto_error=False)
+
 
 router = APIRouter()
 
@@ -40,54 +44,65 @@ async def signup(
 
 @router.post(
     "/login",
-    response_model=TokenPair,
+    response_model=TwoTokens,
     summary="User login",
     responses={
-        "401": {"model": HTTPExceptionResponse},
-        "422": {"model": HTTPValidationError},
+        status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": HTTPValidationError},
     },
     tags=["Authorization"],
 )
-def login(
-    body: Credentials,
-) -> Union[TokenPair, HTTPExceptionResponse, HTTPValidationError]:
-    """
-    Log in
-    """
-    pass
+async def login(
+    credentials: Credentials, auth_service: AuthService = Depends(get_auth_service)
+) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
+    tokens = await auth_service.login(credentials)
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
+    return tokens
 
 
 @router.post(
     "/logout",
     response_model=None,
+    status_code=status.HTTP_204_NO_CONTENT,
     summary="User logout",
-    responses={"401": {"model": HTTPExceptionResponse}},
+    responses={status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse}},
     tags=["Authorization"],
 )
-def logout() -> Optional[HTTPExceptionResponse]:
-    """
-    Log out
-    """
-    pass
+async def logout(
+    access_token: str = Depends(get_token),
+    auth_service: AuthService = Depends(get_auth_service),
+) -> Optional[HTTPExceptionResponse]:
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
+    await auth_service.check_access()
+    await auth_service.logout()
 
 
 @router.post(
     "/refresh",
-    response_model=TokenPair,
+    response_model=TwoTokens,
     summary="Refresh tokens",
     responses={
-        "401": {"model": HTTPExceptionResponse},
-        "422": {"model": HTTPValidationError},
+        status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse},
+        status.HTTP_422_UNPROCESSABLE_ENTITY: {"model": HTTPValidationError},
     },
     tags=["Authorization"],
 )
-def refresh_tokens(
-    body: RefreshToken,
-) -> Union[TokenPair, HTTPExceptionResponse, HTTPValidationError]:
-    """
-    Refresh token
-    """
-    pass
+async def refresh_tokens(
+    refresh_token: Annotated[str, Body(embed=True)],
+    auth_service: AuthService = Depends(get_auth_service),
+) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
+    refreshed_tokens = await auth_service.refresh_tokens(refresh_token)
+    if not refreshed_tokens:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
+        )
+    return refreshed_tokens
 
 
 @router.get(
