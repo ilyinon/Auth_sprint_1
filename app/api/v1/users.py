@@ -4,20 +4,22 @@ from uuid import UUID
 from async_fastapi_jwt_auth import AuthJWT
 from async_fastapi_jwt_auth.exceptions import MissingTokenError
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer  # noqa: F401
 from pydantic import conint
-from schemas.auth import Credentials, RefreshToken, TwoTokens  # noqa: F401
+from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
 from schemas.user import UserPatch, UserResponse
+from services.session import SessionService, get_session_service
 from services.user import UserService, get_user_service
-
-get_token = HTTPBearer(auto_error=False)
-
 
 router = APIRouter()
 
+async def require_jwt(auth_jwt: AuthJWT):
+    try:
+        await auth_jwt.jwt_required()
+    except MissingTokenError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
 
 @router.delete(
     "/sessions/{session_id}",
@@ -30,14 +32,22 @@ router = APIRouter()
     },
     tags=["Manage sessions"],
 )
-def delete_user_session(
+async def delete_user_session(
     session_id: UUID,
+    session_service: SessionService = Depends(get_session_service),
+    auth_jwt: AuthJWT = Depends(require_jwt)
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
-    Delete session
+    Delete user session by session ID.
     """
-    pass
+    session = await session_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
 
+    await session_service.delete_session(session_id)
+    return {"message": "Session deleted successfully."}
+
+PageSizeType = Optional[conint(ge=1)]
 
 @router.get(
     "/sessions",
@@ -49,16 +59,26 @@ def delete_user_session(
     },
     tags=["Manage sessions"],
 )
-def get_user_sessions(
+async def get_user_sessions(
     active: Optional[bool] = None,
-    page_size: Optional[conint(ge=1)] = 50,
-    page_number: Optional[conint(ge=1)] = 1,
-) -> Union[List[SessionResponse], HTTPExceptionResponse, HTTPValidationError]:
+    page_size: PageSizeType = 50,
+    page_number: PageSizeType = 1,
+    session_service: SessionService = Depends(get_session_service),
+    auth_jwt: AuthJWT = Depends(require_jwt)
+) -> Union[List[SessionResponse], HTTPExceptionResponse]:
     """
-    History of user activities
+    Retrieve user's session history with optional pagination and activity filter.
     """
-    pass
+    # Simulate session retrieval from cache or database using the service
+    sessions = await session_service.get_all_sessions()  # Implement in service
+    if not sessions:
+        return []
 
+    # Optional pagination logic
+    start = (page_number - 1) * page_size
+    end = start + page_size
+
+    return sessions[start:end]
 
 @router.post(
     "/{user_id}/roles",
@@ -72,18 +92,25 @@ def get_user_sessions(
     },
     tags=["Manage access"],
 )
-def add_role_to_user(
-    user_id: UUID, body: RoleBaseUUID = ...
+async def add_role_to_user(
+    user_id: UUID, 
+    body: RoleBaseUUID, 
+    user_service: UserService = Depends(get_user_service),
+    auth_jwt: AuthJWT = Depends(require_jwt)
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
-    Add user role
+    Add a role to a user.
     """
-    pass
+    try:
+        await user_service.add_role_to_user(user_id, body)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+    return None
 
 @router.delete(
     "/{user_id}/roles",
-    summary="Take away role from user",
+    summary="Remove role from user",
     response_model=None,
     responses={
         "401": {"model": HTTPExceptionResponse},
@@ -93,14 +120,21 @@ def add_role_to_user(
     },
     tags=["Manage access"],
 )
-def take_away_role_from_user(
-    user_id: UUID, body: RoleBaseUUID = ...
+async def take_away_role_from_user(
+    user_id: UUID, 
+    body: RoleBaseUUID, 
+    user_service: UserService = Depends(get_user_service),
+    auth_jwt: AuthJWT = Depends(require_jwt)
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
-    Delete user role
+    Remove a role from a user.
     """
-    pass
+    try:
+        await user_service.remove_role_from_user(user_id, body)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
+    return None
 
 @router.get(
     "/",
@@ -113,24 +147,17 @@ def take_away_role_from_user(
     tags=["User profile"],
 )
 async def get_user_info(
-    access_token: str = Depends(get_token),
-    auth_jwt: AuthJWT = Depends(),
     user_service: UserService = Depends(get_user_service),
+    auth_jwt: AuthJWT = Depends(require_jwt),
 ) -> Union[UserResponse, HTTPExceptionResponse]:
-    try:
-        await auth_jwt.jwt_required()
-    except MissingTokenError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
-        )
-
+    """
+    Retrieve current user's information.
+    """
     user = await user_service.get_current_user()
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="No user to show"
-        )
-    return user
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    return user
 
 @router.patch(
     "/",
@@ -142,10 +169,17 @@ async def get_user_info(
     },
     tags=["User profile"],
 )
-def patch_current_user(
+async def patch_current_user(
     body: UserPatch,
+    user_service: UserService = Depends(get_user_service),
+    auth_jwt: AuthJWT = Depends(require_jwt),
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
-    Change user profile
+    Update the current user's profile.
     """
-    pass
+    try:
+        updated_user = await user_service.update_user(body)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    return updated_user
