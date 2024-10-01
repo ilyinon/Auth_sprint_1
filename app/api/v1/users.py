@@ -102,7 +102,8 @@ async def add_role_to_user(
     Add a role to a user.
     """
     try:
-        await user_service.add_role_to_user(user_id, body)
+        # maybe this should be in role service?
+        await user_service.add_role_to_user(user_id, body) 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
@@ -130,6 +131,7 @@ async def take_away_role_from_user(
     Remove a role from a user.
     """
     try:
+        # maybe this should be in role service?
         await user_service.remove_role_from_user(user_id, body)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

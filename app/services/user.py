@@ -4,16 +4,17 @@ from typing import Optional
 from uuid import UUID
 
 from async_fastapi_jwt_auth import AuthJWT
-from fastapi import Depends
-from pydantic import EmailStr
-from schemas.user import UserCreate, UserResponse
-from services.database import BaseDb
-from models.user import User
-from sqlalchemy.ext.asyncio import AsyncSession
 from db.pg import get_session
-from services.database import PostgresqlEngine, BaseDb
+from fastapi import Depends
+from fastapi.encoders import jsonable_encoder
+from models.user import User
+from pydantic import EmailStr
+from schemas.user import UserCreate, UserPatch, UserResponse
+from services.database import BaseDb, PostgresqlEngine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
 
 class UserService:
     def __init__(self, db: BaseDb, auth_jwt: AuthJWT):
@@ -40,12 +41,25 @@ class UserService:
             return UserResponse.from_orm(user)
         return None
 
+    async def update_user(self, user_patch: UserPatch) -> Optional[UserResponse]:
+        user_id = await self.auth_jwt.get_jwt_subject()
+        current_user = await self.db.get_by_id(user_id, User)
+
+        if not current_user:
+            return "User not found"
+
+        user_data = jsonable_encoder(user_patch, exclude_unset=True)
+
+        updated_user = await self.db.update(user_id, user_data)
+        if updated_user:
+            return UserResponse.from_orm(updated_user)
+
 
 @lru_cache()
 def get_user_service(
     db_session: AsyncSession = Depends(get_session), auth_jwt: AuthJWT = Depends()
 ) -> UserService:
-    
+
     db_engine = PostgresqlEngine(db_session)
     base_db = BaseDb(db_engine)
     return UserService(base_db, auth_jwt)

@@ -37,7 +37,7 @@ async def signup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The email is already in use",
         )
-    logger.info(f"wanna create {user_create}")
+    logger.info(f"Request to create {user_create}")
     created_new_user = await user_service.create_user(user_create)
     return created_new_user
 

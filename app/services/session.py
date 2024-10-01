@@ -1,14 +1,13 @@
+import logging
 from functools import lru_cache
-import logging
-import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import Depends
 from db.redis import get_redis
-from services.cache import BaseCache, RedisCacheEngine
-from schemas.session import SessionResponse 
+from fastapi import Depends
 from redis.asyncio import Redis
+from schemas.session import SessionResponse
+from services.cache import BaseCache, RedisCacheEngine
 
 logger = logging.getLogger(__name__)
 
