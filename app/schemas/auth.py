@@ -8,8 +8,12 @@ class Credentials(OrjsonBaseModel):
 
 
 class RefreshToken(OrjsonBaseModel):
-    refresh_token: str
+    refresh_token: str | None
+
+
+class AccessToken(OrjsonBaseModel):
+    access_token: str
 
 
 class TwoTokens(RefreshToken):
-    access_token: str
+    access_token: str | None

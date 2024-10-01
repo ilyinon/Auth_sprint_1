@@ -31,6 +31,12 @@ class AuthSettings(BaseSettings):
     authjwt_secret_key: str
     authjwt_algorithm: str = "HS256"
 
+    authjwt_access_expiration_in_seconds: int = 600
+    authjwt_refresh_expiration_in_seconds: int = 86400
+
+    authjwt_token_location: set = {"cookies"}
+    authjwt_cookie_csrf_protect: bool = False
+
     @property
     def redis_dsn(self):
         return f"redis://{self.redis_host}:{self.redis_port}"

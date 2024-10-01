@@ -3,22 +3,45 @@ from typing import Optional
 from uuid import UUID
 
 from async_fastapi_jwt_auth import AuthJWT
+from core.config import auth_settings
 from core.logger import logger
 from db.pg import get_session
 from db.redis import get_redis
 from fastapi import Depends
 from models.user import User
 from redis.asyncio import Redis
+from redis.asyncio.client import Pipeline
 from schemas.auth import Credentials, TwoTokens
+from services.cache import BaseCache
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-class AuthService:
-    def __init__(self, db: AsyncSession, redis: Redis, auth_jwt: AuthJWT):
+class AuthService(BaseCache):
+    def __init__(
+        self, db: AsyncSession, redis: Redis, auth_jwt: AuthJWT, cache: BaseCache
+    ):
         self.db = db
         self.redis = redis
-        self.auth_jwt = auth_jwt
+        self._auth_jwt = auth_jwt
+        # self._token_storage = token_storage
+
+    async def store_token(self, token) -> None:
+        async def _store_token_inner(pipeline: Pipeline):
+            if token.access_token:
+                await pipeline.setex(
+                    name=token.access_token,
+                    time=auth_settings.authjwt_access_expiration_in_seconds,
+                    value=str(True),
+                )
+            if token.refresh_token:
+                await pipeline.setex(
+                    name=token.refresh_token,
+                    time=auth_settings.authjwt_refresh_expiration_in_seconds,
+                    value=str(True),
+                )
+
+        await self.redis.transaction(_store_token_inner)
 
     async def login(self, credentials: Credentials) -> Optional[TwoTokens]:
         result = await self.db.execute(
@@ -29,16 +52,27 @@ class AuthService:
             logger.info(f"No creds: {credentials}")
             return None
 
-        return await self.create_tokens(user)
+        # self.redis.put_by_key
+        tokens = await self.create_tokens(user)
+        # await self._auth_jwt.set_access_cookies(tokens.access_token)
+        # await self._auth_jwt.set_refresh_cookies(tokens.refresh_token)
+        logger.info(f"let save tokens to cache: {tokens}")
+        save_it = await self.store_token(tokens)
+        await self._auth_jwt.set_access_cookies(tokens.access_token)
+        await self._auth_jwt.set_refresh_cookies(tokens.refresh_token)
+        logger.info(f"{save_it}")
+        # session = Session(user_id = user.id)
+
+        return tokens
 
     async def create_tokens(self, user: User) -> TwoTokens:
-        access_token = await self.auth_jwt.create_access_token(
+        access_token = await self._auth_jwt.create_access_token(
             subject=str(user.id), user_claims={"session_id": "session_id"}
         )
-        refresh_token = await self.auth_jwt.create_refresh_token(
+        refresh_token = await self._auth_jwt.create_refresh_token(
             subject=str(user.id), user_claims={"session_id": "session_id"}
         )
-        refresh_jwt = await self.auth_jwt.get_raw_jwt(refresh_token)
+        refresh_jwt = await self._auth_jwt.get_raw_jwt(refresh_token)
         logger.info(f"my refresh_jwst: {refresh_jwt}")
 
         logger.info(f"my access_token: {access_token}")
@@ -47,7 +81,20 @@ class AuthService:
         return TwoTokens(access_token=access_token, refresh_token=refresh_token)
 
     async def check_access(self) -> None:
-        await self.auth_jwt.jwt_required()
+        # from api.dependencies.get_user import GetUser, refresh_token_required
+        #     if user.is_active:
+        # raise HTTPException(
+        #     status_code=status.HTTP_400_BAD_REQUEST,
+        #     detail='The User had been already activated.'
+        # )
+
+        try:
+            r = await self._auth_jwt.jwt_required()
+        except Exception:
+            return False
+
+        logger.info(f"innter !!!! {r}")
+        return True
 
     async def logout(self) -> None:
         access_jwt = await self.auth.jwt.get_raw_jwt()
@@ -57,7 +104,7 @@ class AuthService:
         pass
 
     async def refresh_tokens(self, refresh_token: str) -> Optional[TwoTokens]:
-        refresh_token = await self.auth_jwt.get_raw_jwt(refresh_token)
+        refresh_token = await self._auth_jwt.get_raw_jwt(refresh_token)
 
 
 @lru_cache()
@@ -66,4 +113,4 @@ def get_auth_service(
     redis: Redis = Depends(get_redis),
     auth_jwt: AuthJWT = Depends(),
 ) -> AuthService:
-    return AuthService(db, redis, auth_jwt)
+    return AuthService(db, redis, auth_jwt, BaseCache)

@@ -4,14 +4,20 @@ from abc import ABC, abstractmethod
 from typing import Any, Union
 from uuid import UUID
 
+from core.config import auth_settings
 from redis.asyncio import Redis
+from redis.asyncio.client import Pipeline
 
 logger = logging.getLogger(__name__)
 
-class AsyncCacheEngine(ABC):
 
+class AsyncCacheEngine(ABC):
     @abstractmethod
     def _generate_cache_key(self, *args: Union[str, int, UUID]) -> str:
+        pass
+
+    @abstractmethod
+    def _store_token(self, pipeline: Pipeline) -> Any | None:
         pass
 
     @abstractmethod
@@ -26,23 +32,27 @@ class AsyncCacheEngine(ABC):
     async def delete_from_cache(self, key: str) -> None:
         pass
 
+    @abstractmethod
+    async def store_token(self, tokens: Any) -> Any:
+        pass
+
 
 class RedisCacheEngine(AsyncCacheEngine):
-    def __init__(self, redis: Redis):
-        self.redis = redis
+    def __init__(self, cache: Redis):
+        self.cache = cache
 
     def _generate_cache_key(self, *args: Union[str, int, UUID]) -> str:
         return ":".join(str(arg) for arg in args)
 
     async def get_from_cache(self, key: str, Object: Any) -> Any | None:
-        cached_object = await self.redis.get(key)
+        cached_object = await self.cache.get(key)
         if not cached_object:
             return None
 
         logger.info(f"Retrieved {key} from cache")
 
         if isinstance(cached_object, bytes):
-            cached_object = cached_object.decode('utf-8')
+            cached_object = cached_object.decode("utf-8")
 
         parsed_data = json.loads(cached_object)
         if isinstance(parsed_data, list):
@@ -60,18 +70,37 @@ class RedisCacheEngine(AsyncCacheEngine):
 
         logger.info(f"Put to cache with key {key}")
 
-        await self.redis.set(key, serialized_object, expiration)
+        await self.cache.set(key, serialized_object, expiration)
 
     async def delete_from_cache(self, key: str) -> None:
         logger.info(f"Deleted {key} from cache")
-        await self.redis.delete(key)
+        await self.cache.delete(key)
+
+    async def store_token(self, token: Any) -> None:
+        async def _store_token_inner(pipeline: Pipeline):
+            if token.access_token_jti:
+                await pipeline.setex(
+                    name=token.access_token_jti,
+                    time=auth_settings.access_expiration_seconds,
+                    value=str(True),
+                )
+            if token.refresh_token_jti:
+                await pipeline.setex(
+                    name=token.refresh_token_jti,
+                    time=auth_settings.refresh_expiration_seconds,
+                    value=str(True),
+                )
+
+        await self._client.transaction(_store_token_inner)
 
 
 class BaseCache:
     def __init__(self, cache_engine: AsyncCacheEngine):
         self.cache_engine = cache_engine
 
-    async def get_by_id(self, object_name: str, object_id: UUID, Object: Any) -> Any | None:
+    async def get_by_id(
+        self, object_name: str, object_id: UUID, Object: Any
+    ) -> Any | None:
         key = self.cache_engine._generate_cache_key(object_name, object_id)
         return await self.cache_engine.get_from_cache(key, Object)
 
@@ -83,10 +112,16 @@ class BaseCache:
         key = self.cache_engine._generate_cache_key(*args)
         return await self.cache_engine.get_from_cache(key, Object)
 
-    async def put_by_key(self, object: Any, expiration: int, *args: Union[str, int]) -> None:
+    async def put_by_key(
+        self, object: Any, expiration: int, *args: Union[str, int]
+    ) -> None:
         key = self.cache_engine._generate_cache_key(*args)
         await self.cache_engine.put_to_cache(key, object, expiration)
 
     async def delete_by_key(self, *args: Union[str, int]) -> None:
         key = self.cache_engine._generate_cache_key(*args)
         await self.cache_engine.delete_from_cache(key)
+
+    async def store_token(self, tokens) -> None:
+        logger.info(f"!!!!!!!!! {tokens.access_token} {tokens.refresh_token}")
+        await self.cache_engine.store_token(tokens.access_token)
