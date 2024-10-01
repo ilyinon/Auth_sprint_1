@@ -31,7 +31,7 @@ class UserService:
     async def create_user(self, user_create: UserCreate) -> UserResponse:
         user = User(**user_create.dict())
         logger.info(f"Creating a new user with data: {user_create}")
-        new_user = await self.db.create(user)
+        new_user = await self.db.create(user, User)
         return UserResponse.from_orm(new_user)
 
     async def get_current_user(self) -> Optional[UserResponse]:

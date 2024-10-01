@@ -30,7 +30,7 @@ router = APIRouter()
 async def signup(
     user_create: UserCreate, user_service: UserService = Depends(get_user_service)
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
-
+    
     is_exist_user = await user_service.get_user_by_email(user_create.email)
     if is_exist_user:
         raise HTTPException(

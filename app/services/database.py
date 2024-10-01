@@ -40,7 +40,7 @@ class PostgresqlEngine(AsyncDbEngine):
         return result.scalar_one_or_none()
 
     async def create(self, object_data: Any, Object: Any) -> Any:
-        new_object = Object(**object_data.dict())
+        new_object = object_data
         self.db_session.add(new_object)
         await self.db_session.commit()
         await self.db_session.refresh(new_object)
@@ -66,6 +66,10 @@ class PostgresqlEngine(AsyncDbEngine):
         result = await self.db_session.execute(query)
         return result.scalars().all()
 
+    async def execute(self, query) -> Any:
+        result = await self.db_session.execute(query)
+        return result
+
 
 class BaseDb:
     def __init__(self, db_engine: AsyncDbEngine):
@@ -74,8 +78,8 @@ class BaseDb:
     async def get_by_id(self, object_id: UUID, Object: Any) -> Optional[Any]:
         return await self.db_engine.get_by_id(object_id, Object)
 
-    async def create(self, object_data: Any) -> Any:
-        return await self.db_engine.create(object_data)
+    async def create(self, object_data: Any, Object: Any) -> Any:
+        return await self.db_engine.create(object_data, Object)
 
     async def update(self, object_id: UUID, object_data: Any) -> Optional[Any]:
         return await self.db_engine.update(object_id, object_data)
