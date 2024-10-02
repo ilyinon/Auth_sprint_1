@@ -1,6 +1,6 @@
 from functools import lru_cache
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from async_fastapi_jwt_auth import AuthJWT
 from core.logger import logger
@@ -9,9 +9,14 @@ from db.redis import get_redis
 from fastapi import Depends
 from models.user import User
 from redis.asyncio import Redis
-from schemas.auth import Credentials, TwoTokens
+from schemas.auth import Credentials, TwoTokens, Token
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timedelta
+import jwt
+from core.config import auth_settings
+
+ACCESS_TOKEN_EXPIRY = 1800
 
 
 class AuthService:
@@ -45,6 +50,28 @@ class AuthService:
         logger.info(f"my refresh_token: {refresh_token}")
 
         return TwoTokens(access_token=access_token, refresh_token=refresh_token)
+
+    async def create_access_token(
+        self, user_data: User, expiry: timedelta = None, refresh: bool = False
+    ) -> Token:
+
+        payload = {}
+
+        payload["user"] = user_data
+        payload["exp"] = datetime.now() + (
+            expiry if expiry is not None else timedelta(seconds=ACCESS_TOKEN_EXPIRY)
+        )
+        payload["jti"] = str(uuid4())
+
+        payload["refresh"] = refresh
+        logger.info(f"payload is {payload}, type is {type(payload)}")
+        token = jwt.encode(
+            payload=payload,
+            key=auth_settings.authjwt_secret_key,
+            algorithm=auth_settings.authjwt_algorithm,
+        )
+        logger.info(f"generated token is {token}")
+        return token
 
     async def check_access(self) -> None:
         await self.auth_jwt.jwt_required()

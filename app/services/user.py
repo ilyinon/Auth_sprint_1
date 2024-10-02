@@ -9,7 +9,7 @@ from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
 from models.user import User
 from pydantic import EmailStr
-from schemas.user import UserCreate, UserPatch, UserResponse
+from schemas.user import UserCreate, UserPatch, UserResponse, UserResponseLogin
 from services.database import BaseDb, PostgresqlEngine
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +24,13 @@ class UserService:
     async def get_user_by_email(self, email: EmailStr) -> Optional[UserResponse]:
         logger.info(f"Checking if user with email {email} exists")
         user = await self.db.get_by_key("email", email, User)
+        if user:
+            return UserResponseLogin.from_orm(user)
+        return None
+
+    async def get_user_by_username(self, username: str) -> Optional[UserResponse]:
+        logger.info(f"Checking if user with username {username} exists")
+        user = await self.db.get_by_key("username", username, User)
         if user:
             return UserResponse.from_orm(user)
         return None

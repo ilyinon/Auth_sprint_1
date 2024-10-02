@@ -8,6 +8,7 @@ from redis.asyncio import Redis
 
 logger = logging.getLogger(__name__)
 
+
 class AsyncCacheEngine(ABC):
 
     @abstractmethod
@@ -42,7 +43,7 @@ class RedisCacheEngine(AsyncCacheEngine):
         logger.info(f"Retrieved {key} from cache")
 
         if isinstance(cached_object, bytes):
-            cached_object = cached_object.decode('utf-8')
+            cached_object = cached_object.decode("utf-8")
 
         parsed_data = json.loads(cached_object)
         if isinstance(parsed_data, list):
@@ -71,7 +72,9 @@ class BaseCache:
     def __init__(self, cache_engine: AsyncCacheEngine):
         self.cache_engine = cache_engine
 
-    async def get_by_id(self, object_name: str, object_id: UUID, Object: Any) -> Any | None:
+    async def get_by_id(
+        self, object_name: str, object_id: UUID, Object: Any
+    ) -> Any | None:
         key = self.cache_engine._generate_cache_key(object_name, object_id)
         return await self.cache_engine.get_from_cache(key, Object)
 
@@ -83,7 +86,9 @@ class BaseCache:
         key = self.cache_engine._generate_cache_key(*args)
         return await self.cache_engine.get_from_cache(key, Object)
 
-    async def put_by_key(self, object: Any, expiration: int, *args: Union[str, int]) -> None:
+    async def put_by_key(
+        self, object: Any, expiration: int, *args: Union[str, int]
+    ) -> None:
         key = self.cache_engine._generate_cache_key(*args)
         await self.cache_engine.put_to_cache(key, object, expiration)
 
