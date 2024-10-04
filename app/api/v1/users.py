@@ -1,7 +1,8 @@
 from typing import List, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer
 from pydantic import conint
 from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
@@ -11,6 +12,8 @@ from schemas.user import UserPatch, UserResponse
 from services.auth import AuthService, get_auth_service
 from services.session import SessionService, get_session_service
 from services.user import UserService, get_user_service
+
+get_token = HTTPBearer(auto_error=False)
 
 router = APIRouter()
 
@@ -164,19 +167,22 @@ async def take_away_role_from_user(
     tags=["User profile"],
 )
 async def get_user_info(
+    request: Request,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[UserResponse, HTTPExceptionResponse]:
     """
     Retrieve current user's information.
     """
-    user = await auth_service.check_access()
+    user = await auth_service.check_access(creds=access_token.credentials)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
 
-    user_info = await user_service.get_current_user()
+    user_uuid = UUID(user.get("user_id"))
+    user_info = await user_service.get_current_user(user_uuid)
     if not user_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
@@ -195,14 +201,16 @@ async def get_user_info(
     tags=["User profile"],
 )
 async def patch_current_user(
+    request: Request,
     body: UserPatch,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Update the current user's profile.
     """
-    user = await auth_service.check_access()
+    user = await auth_service.check_access(creds=access_token.credentials)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"

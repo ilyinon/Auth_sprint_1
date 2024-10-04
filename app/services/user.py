@@ -3,10 +3,10 @@ from functools import lru_cache
 from typing import Optional
 from uuid import UUID
 
-from async_fastapi_jwt_auth import AuthJWT
-from app.models.role import Role
-from app.schemas.role import RoleBaseUUID
-from app.schemas.session import SessionResponse
+import jwt as jwt_auth
+from models.role import Role
+from schemas.role import RoleBaseUUID
+from schemas.session import SessionResponse
 from db.pg import get_session
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
-    def __init__(self, db: BaseDb, auth_jwt: AuthJWT):
+    def __init__(self, db: BaseDb, auth_jwt: jwt_auth):
         self.db = db
         self.auth_jwt = auth_jwt
 
@@ -44,15 +44,13 @@ class UserService:
         new_user = await self.db.create(user, User)
         return UserResponse.from_orm(new_user)
 
-    async def get_current_user(self) -> Optional[UserResponse]:
-        user_id = UUID(await self.auth_jwt.get_jwt_subject())
+    async def get_current_user(self, user_id: UUID) -> Optional[UserResponse]:
         user = await self.db.get_by_id(user_id, User)
         if user:
             return UserResponse.from_orm(user)
         return None
 
-    async def update_user(self, user_patch: UserPatch) -> Optional[UserResponse]:
-        user_id = await self.auth_jwt.get_jwt_subject()
+    async def update_user(self, user_id: UUID, user_patch: UserPatch) -> Optional[UserResponse]:
         current_user = await self.db.get_by_id(user_id, User)
 
         if not current_user:
@@ -93,9 +91,9 @@ class UserService:
 
 @lru_cache()
 def get_user_service(
-    db_session: AsyncSession = Depends(get_session), auth_jwt: AuthJWT = Depends()
+    db_session: AsyncSession = Depends(get_session)
 ) -> UserService:
 
     db_engine = PostgresqlEngine(db_session)
     base_db = BaseDb(db_engine)
-    return UserService(base_db, auth_jwt)
+    return UserService(base_db, jwt_auth)
