@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Optional
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import jwt as jwt_auth
 from core.config import auth_settings
@@ -38,8 +38,12 @@ class AuthService:
                     select(Role.name).where(UserRole.user_id == user.id).join(UserRole)
                 )
                 logger.info(f"User {email} has roles {user_roles}")
-                user_roles = [role for role in user_roles]
-                return await self.create_tokens(user, True, user_roles)
+                user_data = {
+                    "email": user.email,
+                    "user_id": str(user.id),
+                    "roles": [role for role in user_roles],
+                }
+                return await self.create_tokens(user, True, user_data)
 
         logger.info(f"Failed to login {email}")
         return None
@@ -49,24 +53,24 @@ class AuthService:
         return await self.db.execute(select(User).where(email == email))
 
     async def create_tokens(
-        self, user: User, is_exist: bool = True, user_roles=[]
+        self, user: User, is_exist: bool = True, user_data={}
     ) -> TwoTokens:
 
-        access_token = await self.create_token(user, user_roles, False)
+        access_token = await self.create_token(user, user_data, False)
         logger.info(f"access token is {access_token}")
 
-        refresh_token = await self.create_token(user, user_roles, True)
+        refresh_token = await self.create_token(user, user_data, True)
         logger.info(f"refresh token is {refresh_token}")
         return TwoTokens(access_token=access_token, refresh_token=refresh_token)
 
     async def create_token(
         self,
         user: User,
-        user_roles=[],
+        user_data={},
         refresh=False,
     ):
         logger.info("Start to create token")
-        logger.info(f"User roles is user_roles")
+        logger.info(f"User data is user_data")
         expires_time = datetime.now(tz=timezone.utc) + timedelta(
             seconds=auth_settings.jwt_access_token_expires_in_seconds
         )
@@ -74,10 +78,10 @@ class AuthService:
 
         payload = {}
 
-        payload["user"] = user.username
-        payload["roles"] = user_roles
+        payload["user"] = user_data
+
         payload["exp"] = expires_time
-        payload["jti"] = str(user.id)
+        payload["jti"] = str(uuid4())
 
         payload["refresh"] = refresh
 
@@ -89,24 +93,33 @@ class AuthService:
         logger.info("Token is generated")
         return token
 
-    async def check_access(self, creds, allow_roles: list[str] = None) -> None:
+    async def check_access(self, creds) -> None:
         logger.info(f"Check access for token {creds}")
         try:
-            result = await self.verify_jwt(creds)
+            result = (await self.verify_jwt(creds)).user
             logger.info(f"The result is {result}")
 
         except Exception as e:
             logger.info(e)
             return None
+        return result
 
-        logger.info("check roles if allow")
-        if allow_roles is None:
-            logger.info("No roles to verify")
-            return result.jti
+    async def check_access_with_roles(
+        self, creds, allow_roles: list[str] = None
+    ) -> None:
+        user_payload = await self.check_access(creds)
+        if user_payload:
+            logger.info("check roles if allow")
+            if user_payload.get("roles", None):
+                logger.info("User has no roles")
 
-        if not set(allow_roles) & set(result["roles"]):
-            return None
-        return result.jti
+            else:
+                if allow_roles:
+                    logger.info(f"check if user has permission is {allow_roles}")
+                    if not set(allow_roles) & set(user_payload.get("roles", "fake")):
+                        return None
+                return user_payload
+        return False
 
     async def verify_jwt(self, jwtoken: str) -> bool:
         logger.info("Start to verify")
@@ -135,12 +148,17 @@ class AuthService:
 
     async def logout(self, access_token: str) -> None:
         logger.info(f"Logout user {access_token}")
-        await self.end_session(access_token)
+        decoded_token = await self.decode_jwt(access_token)
+        if not decoded_token:
+            return False
+        logger.info(f"decoded token for logout is {decoded_token}")
 
-    async def end_session(self, access_jwt):
-        logger.info(f"End session for {access_jwt}")
+        await self.end_session(decoded_token["jti"])
 
-        await self.revoke_access_token(access_jwt)
+    async def end_session(self, jti):
+        logger.info(f"End session for {jti}")
+
+        await self.revoke_access_token(jti)
 
     async def revoke_access_token(self, jti: UUID):
         await add_jti_to_blocklist(jti)

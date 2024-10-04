@@ -103,9 +103,7 @@ async def logout(
     user_agent = request.headers.get("user-agent")
     logger.info(f"Log out for {access_token.credentials}")
 
-    if await auth_service.check_access(
-        creds=access_token.credentials, allow_roles=None
-    ):
+    if await auth_service.check_access(creds=access_token.credentials):
         await auth_service.logout(access_token.credentials)
         return status.HTTP_200_OK
 
@@ -146,15 +144,16 @@ async def refresh_tokens(
     tags=["Authorization"],
 )
 async def check_access(
-    access_token: Annotated[str, Depends(get_token)],
-    allow_roles: Annotated[
-        list[Literal["admin", "user"]], Query(description="Кому доступно")
-    ] = None,
+    request: Request,
+    access_token: str = Depends(get_token),
+    allow_roles: Literal["admin", "user"] = None,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
-    logger.info(f"Log out for {access_token}")
+    logger.info(f"Check access for {access_token.credentials}")
 
-    if await auth_service.check_access(creds=access_token, allow_roles=None):
+    if await auth_service.check_access_with_roles(
+        creds=access_token.credentials, allow_roles=allow_roles
+    ):
         return status.HTTP_200_OK
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

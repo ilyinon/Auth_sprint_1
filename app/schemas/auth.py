@@ -1,5 +1,8 @@
-from pydantic import Field
+from typing import Dict
+
+from pydantic import ConfigDict, Field, TypeAdapter
 from schemas.base import OrjsonBaseModel
+from typing_extensions import TypedDict
 
 
 class Credentials(OrjsonBaseModel):
@@ -20,9 +23,14 @@ class UserLoginModel(OrjsonBaseModel):
     password: str = Field()
 
 
-class Payload(OrjsonBaseModel):
-    user: str
+class UserData(TypedDict, total=False):
+
+    email: str
+    user_id: str
     roles: list
-    exp: int
-    jti: str
-    refresh: bool
+
+
+class Payload(OrjsonBaseModel):
+    __pydantic_config__ = ConfigDict(extra="forbid")
+
+    user: UserData
