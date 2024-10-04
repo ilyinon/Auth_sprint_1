@@ -1,6 +1,5 @@
 from typing import Annotated, List, Literal, Optional, Union
 
-from services.session import SessionService, get_session_service
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 from fastapi.exceptions import HTTPException
@@ -11,12 +10,9 @@ from passlib.context import CryptContext
 from schemas.auth import Credentials, TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
-from schemas.user import UserCreate, UserResponse, UserLoginModel
+from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
-from services.errors import UserAlreadyExists
-from sqlmodel.ext.asyncio.session import AsyncSession
-from db.pg import get_session
 
 get_token = HTTPBearer(auto_error=False)
 from db.redis import add_jti_to_blocklist
@@ -58,12 +54,6 @@ async def signup(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The email is already in use",
-        )
-    is_exist_username = await user_service.get_user_by_username(user_create.username)
-    if is_exist_username:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The username is already in use",
         )
     logger.info(f"Request to create {user_create}")
     created_new_user = await user_service.create_user(user_create)
@@ -131,18 +121,15 @@ async def logout(
     tags=["Authorization"],
 )
 async def refresh_tokens(
-    token_details: dict = Depends(RefreshTokenBearer()),
+    refresh_token: Annotated[str, Body(embed=True)],
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    expiry_timestamp = token_details["exp"]
-    logger.info(f"token info {token_details}")
-    if datetime.fromtimestamp(expiry_timestamp) > datetime.now():
-        new_access_token = create_access_token(user_data=token_details["user"])
-        logger.info(f"new tokens is {new_access_token}")
-        return new_access_token
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-    )
+    refreshed_tokens = await auth_service.refresh_tokens(refresh_token)
+    if not refreshed_tokens:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
+        )
+    return refreshed_tokens
 
 
 @router.get(
