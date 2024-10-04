@@ -164,7 +164,15 @@ class AuthService:
         await add_jti_to_blocklist(jti)
 
     async def refresh_tokens(self, refresh_token: str) -> Optional[TwoTokens]:
-        refresh_token = await self.auth_jwt.get_raw_jwt(refresh_token)
+        logger.info("From auth service start to refresh token")
+        decoded_token = await self.decode_jwt(refresh_token)
+        logger.info(f"decoded refresh token: {decoded_token}")
+        user = await self.get_user_by_email(decoded_token["user"]["email"])
+        logger.info(f"get user to refresh: {user}")
+        if user:
+            if decoded_token["refresh"]:
+                return await self.create_tokens(user, True, decoded_token["user"])
+        return False
 
 
 @lru_cache()

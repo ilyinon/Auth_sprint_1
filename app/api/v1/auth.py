@@ -15,9 +15,7 @@ from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
 
 get_token = HTTPBearer(auto_error=False)
-from db.redis import add_jti_to_blocklist
-from services.utils import verify_password, create_access_token
-from services.dependencies import AccessTokenBearer, RefreshTokenBearer
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -50,14 +48,15 @@ async def signup(
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
 
     is_exist_user = await user_service.get_user_by_email(user_create.email)
-    if is_exist_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The email is already in use",
-        )
-    logger.info(f"Request to create {user_create}")
-    created_new_user = await user_service.create_user(user_create)
-    return created_new_user
+    if not await user_service.get_user_by_email(user_create.email):
+        if not await user_service.get_user_by_username(user_create.username):
+            logger.info(f"Request to create {user_create}")
+            created_new_user = await user_service.create_user(user_create)
+            return created_new_user
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="The email or username is already in use",
+    )
 
 
 @router.post(
@@ -100,12 +99,12 @@ async def logout(
     access_token: str = Depends(get_token),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[HTTPExceptionResponse]:
-    user_agent = request.headers.get("user-agent")
-    logger.info(f"Log out for {access_token.credentials}")
-
-    if await auth_service.check_access(creds=access_token.credentials):
-        await auth_service.logout(access_token.credentials)
-        return status.HTTP_200_OK
+    if access_token:
+        logger.info(f"Log out for {access_token.credentials}")
+        user_agent = request.headers.get("user-agent")
+        if await auth_service.check_access(creds=access_token.credentials):
+            await auth_service.logout(access_token.credentials)
+            return status.HTTP_200_OK
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
@@ -122,14 +121,30 @@ async def logout(
 )
 async def refresh_tokens(
     refresh_token: Annotated[str, Body(embed=True)],
+    request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    refreshed_tokens = await auth_service.refresh_tokens(refresh_token)
-    if not refreshed_tokens:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
-        )
-    return refreshed_tokens
+    if refresh_token:
+        logger.info(f"token to refresh {refresh_token}")
+        tokens = await auth_service.refresh_tokens(refresh_token)
+        if tokens:
+            return tokens
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    # token_details: dict = Depends(RefreshTokenBearer())
+    # expiry_timestamp = token_details["exp"]
+    # if datetime.fromtimestamp(expiry_timestamp) > datetime.now():
+    #     new_access_token = create_access_token(user_data=token_details["user"])
+
+    #     return JSONResponse(content={"access_token": new_access_token})
+
+    # raise InvalidToken
+
+    # if not refreshed_tokens:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
+    #     )
+    # return refreshed_tokens
 
 
 @router.get(
@@ -149,11 +164,12 @@ async def check_access(
     allow_roles: Literal["admin", "user"] = None,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
-    logger.info(f"Check access for {access_token.credentials}")
+    if access_token:
+        logger.info(f"Check access for {access_token.credentials}")
 
-    if await auth_service.check_access_with_roles(
-        creds=access_token.credentials, allow_roles=allow_roles
-    ):
-        return status.HTTP_200_OK
+        if await auth_service.check_access_with_roles(
+            creds=access_token.credentials, allow_roles=allow_roles
+        ):
+            return status.HTTP_200_OK
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
