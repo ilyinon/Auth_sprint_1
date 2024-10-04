@@ -2,6 +2,7 @@ from typing import List, Optional, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer  # noqa: F401
 from pydantic import conint
 from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
@@ -13,6 +14,8 @@ from services.session import SessionService, get_session_service
 from services.user import UserService, get_user_service
 
 router = APIRouter()
+
+get_token = HTTPBearer(auto_error=False)
 
 
 @router.delete(

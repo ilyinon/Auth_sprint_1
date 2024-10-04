@@ -3,8 +3,9 @@ from typing import Annotated, List, Literal, Optional, Union
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 from fastapi.exceptions import HTTPException
-from fastapi.security import HTTPBearer  # noqa: F401
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.security import HTTPBearer
+
+# from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from schemas.auth import Credentials, TwoTokens, UserLoginModel
@@ -17,17 +18,17 @@ from services.user import UserService, get_user_service
 get_token = HTTPBearer(auto_error=False)
 
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+# def verify_password(plain_password, hashed_password):
+#     return pwd_context.verify(plain_password, hashed_password)
+
+
+# def get_password_hash(password):
+#     return pwd_context.hash(password)
 
 
 router = APIRouter()
@@ -76,8 +77,10 @@ async def login(
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    if await user_service.get_user_by_email(form_data.email):
+    logger.info(f"get user by email {form_data.email}")
+    if await auth_service.get_user_by_email(form_data.email):
         logger.info(f"user agent is {request.headers.get('user-agent')}")
+
         tokens = await auth_service.login(form_data.email, form_data.password)
         if tokens:
             return tokens
@@ -131,20 +134,6 @@ async def refresh_tokens(
             return tokens
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-    # token_details: dict = Depends(RefreshTokenBearer())
-    # expiry_timestamp = token_details["exp"]
-    # if datetime.fromtimestamp(expiry_timestamp) > datetime.now():
-    #     new_access_token = create_access_token(user_data=token_details["user"])
-
-    #     return JSONResponse(content={"access_token": new_access_token})
-
-    # raise InvalidToken
-
-    # if not refreshed_tokens:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
-    #     )
-    # return refreshed_tokens
 
 
 @router.get(

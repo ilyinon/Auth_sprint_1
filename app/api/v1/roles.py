@@ -1,11 +1,16 @@
 from typing import List, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer  # noqa: F401
+from core.logger import logger
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer
+from schemas.auth import TokenPayload
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBase, RoleResponse
+from services.auth import AuthService, get_auth_service
 from services.role import RoleService, get_role_service
+
+get_token = HTTPBearer(auto_error=False)
 
 router = APIRouter()
 
@@ -21,18 +26,32 @@ router = APIRouter()
     tags=["Manage roles"],
 )
 async def list_roles(
+    request: Request,
+    access_token: str = Depends(get_token),
     role_service: RoleService = Depends(get_role_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[List[RoleResponse], HTTPExceptionResponse]:
     """
     List of roles
     """
-    # try:
-    return await role_service.list_roles()
+    logger.info(f"get roles with token {access_token.credentials}")
+
+    if access_token:
+        logger.info(f"Check access for {access_token.credentials}")
+
+        if await auth_service.check_access_with_roles(
+            access_token.credentials, ["user"]
+        ):
+
+            return await role_service.list_roles()
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+
     # except Exception as e:
     #     raise HTTPException(
     #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
     #         detail="Could not retrieve roles",
-        # )
+    # )
 
 
 @router.post(
