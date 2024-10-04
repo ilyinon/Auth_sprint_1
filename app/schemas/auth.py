@@ -10,6 +10,10 @@ class Credentials(OrjsonBaseModel):
     password: str = Field(title="Password")
 
 
+class Token(OrjsonBaseModel):
+    token: str
+
+
 class RefreshToken(OrjsonBaseModel):
     refresh_token: str
 

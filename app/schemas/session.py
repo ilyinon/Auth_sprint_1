@@ -15,3 +15,4 @@ class SessionResponse(OrjsonBaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
