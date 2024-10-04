@@ -2,11 +2,11 @@ from functools import lru_cache
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import Depends
 from db.pg import get_session
-from services.database import PostgresqlEngine, BaseDb
+from fastapi import Depends
 from models.role import Role
 from schemas.role import RoleBase, RoleResponse
+from services.database import BaseDb, PostgresqlEngine
 from sqlalchemy.ext.asyncio import AsyncSession
 
 

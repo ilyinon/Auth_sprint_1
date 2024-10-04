@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class AsyncDbEngine(ABC):
-
     @abstractmethod
     async def get_by_id(self, object_id: UUID, Object: Any) -> Optional[Any]:
         pass
