@@ -112,7 +112,7 @@ class AuthService:
         user_payload = await self.check_access(creds)
         if user_payload:
             logger.info("check roles if allow")
-            if user_payload.get("roles", None):
+            if not user_payload.get("roles", None):
                 logger.info("User has no roles")
 
             else:
