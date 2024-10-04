@@ -31,6 +31,9 @@ class AuthSettings(BaseSettings):
     authjwt_secret_key: str
     authjwt_algorithm: str = "HS256"
 
+    jwt_access_token_expires_in_seconds: int = 1800
+    jwt_refresh_token_expires_in_days: int = 30
+
     @property
     def redis_dsn(self):
         return f"redis://{self.redis_host}:{self.redis_port}"

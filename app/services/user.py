@@ -11,6 +11,7 @@ from models.user import User
 from pydantic import EmailStr
 from schemas.user import UserCreate, UserPatch, UserResponse
 from services.database import BaseDb, PostgresqlEngine
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
