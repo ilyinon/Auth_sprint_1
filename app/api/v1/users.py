@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer  # noqa: F401
 from pydantic import conint
-from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
@@ -32,20 +31,22 @@ async def delete_user_session(
     session_id: UUID,
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
+    access_token: str = Depends(get_token),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Delete user session by session ID.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    if access_token:
+        # TODO: get use id from token payload
+        session = await session_service.get_session(session_id)
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+            )
 
-    session = await session_service.get_session(session_id)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-        )
-
-    await session_service.delete_session(session_id)
-    return {"message": "Session deleted successfully."}
+        await session_service.delete_session(session_id)
+        return {"message": "Session deleted successfully."}
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 PageSizeType = Optional[conint(ge=1)]
@@ -67,22 +68,25 @@ async def get_user_sessions(
     page_number: PageSizeType = 1,
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
+    access_token: str = Depends(get_token),
 ) -> Union[List[SessionResponse], HTTPExceptionResponse]:
     """
     Retrieve user's session history with optional pagination and activity filter.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    if access_token:
+        # TODO: get use id from token payload
 
-    # Simulate session retrieval from cache or database using the service
-    sessions = await session_service.get_all_sessions()  # Implement in service
-    if not sessions:
-        return []
+        # Simulate session retrieval from cache or database using the service
+        sessions = await session_service.get_all_sessions()  # Implement in service
+        if not sessions:
+            return []
 
-    # Optional pagination logic
-    start = (page_number - 1) * page_size
-    end = start + page_size
+        # Optional pagination logic
+        start = (page_number - 1) * page_size
+        end = start + page_size
 
-    return sessions[start:end]
+        return sessions[start:end]
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.post(
@@ -102,18 +106,20 @@ async def add_role_to_user(
     body: RoleBaseUUID,
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
+    access_token: str = Depends(get_token),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Add a role to a user.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    if access_token:
+        # TODO: get use id from token payload
+        try:
+            await user_service.add_role_to_user(user_id, body)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    try:
-        await user_service.add_role_to_user(user_id, body)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-    return None
+        return None
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.delete(
@@ -133,18 +139,23 @@ async def take_away_role_from_user(
     body: RoleBaseUUID,
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
+    access_token: str = Depends(get_token),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Remove a role from a user.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    if access_token:
+        # TODO: get use id from token payload
 
-    try:
-        await user_service.remove_role_from_user(user_id, body)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        # TODO if user has this role
+        #
+        # TODO: try to delete remove role from user
+        # await user_service.remove_role_from_user(user_id, body)
 
-    return None
+        # raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        pass
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.get(
@@ -160,19 +171,22 @@ async def take_away_role_from_user(
 async def get_user_info(
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
+    access_token: str = Depends(get_token),
 ) -> Union[UserResponse, HTTPExceptionResponse]:
     """
     Retrieve current user's information.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    if access_token:
+        # TODO: get use id from token payload
 
-    user = await user_service.get_current_user()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-        )
+        user = await user_service.get_current_user()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
 
-    return user
+        return user
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.patch(
@@ -189,15 +203,18 @@ async def patch_current_user(
     body: UserPatch,
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
+    access_token: str = Depends(get_token),
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Update the current user's profile.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    if access_token:
+        # TODO: get use id from token payload
 
-    try:
-        updated_user = await user_service.update_user(body)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        try:
+            updated_user = await user_service.update_user(body)
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
-    return updated_user
+        return updated_user
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

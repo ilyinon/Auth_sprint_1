@@ -32,7 +32,9 @@ class RoleService:
     async def delete_role(self, role_id: UUID) -> None:
         await self.db.delete(role_id, Role)
 
-    async def update_role(self, role_id: UUID, role_data: RoleBase) -> Optional[RoleResponse]:
+    async def update_role(
+        self, role_id: UUID, role_data: RoleBase
+    ) -> Optional[RoleResponse]:
         updated_role = await self.db.update(role_id, role_data, Role)
         if updated_role:
             return RoleResponse.from_orm(updated_role)
@@ -40,9 +42,7 @@ class RoleService:
 
 
 @lru_cache()
-def get_role_service(
-    db_session: AsyncSession = Depends(get_session)
-) -> RoleService:
+def get_role_service(db_session: AsyncSession = Depends(get_session)) -> RoleService:
 
     db_engine = PostgresqlEngine(db_session)
     base_db = BaseDb(db_engine)

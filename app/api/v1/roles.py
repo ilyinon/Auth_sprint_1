@@ -129,6 +129,7 @@ async def change_role(
     body: RoleBase,
     access_token: str = Depends(get_token),
     role_service: RoleService = Depends(get_role_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[RoleResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Change role
