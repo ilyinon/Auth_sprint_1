@@ -28,14 +28,16 @@ router = APIRouter()
     tags=["Manage sessions"],
 )
 async def delete_user_session(
+    request: Request,
     session_id: UUID,
+    access_token: str = Depends(get_token),
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Delete user session by session ID.
     """
-    user = await auth_service.check_access()
+    user = await auth_service.check_access(creds=access_token.credentials)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
@@ -63,16 +65,18 @@ PageSizeType = Optional[conint(ge=1)]
     tags=["Manage sessions"],
 )
 async def get_user_sessions(
+    request: Request,
     active: Optional[bool] = None,
     page_size: PageSizeType = 50,
     page_number: PageSizeType = 1,
+    access_token: str = Depends(get_token),
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[List[SessionResponse], HTTPExceptionResponse]:
     """
     Retrieve user's session history with optional pagination and activity filter.
     """
-    user = await auth_service.check_access()
+    user = await auth_service.check_access(creds=access_token.credentials)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
@@ -101,15 +105,17 @@ async def get_user_sessions(
     tags=["Manage access"],
 )
 async def add_role_to_user(
+    request: Request,
     user_id: UUID,
     body: RoleBaseUUID,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Add a role to a user.
     """
-    user = await auth_service.check_access()
+    user = await auth_service.check_access(creds=access_token.credentials)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
@@ -135,15 +141,17 @@ async def add_role_to_user(
     tags=["Manage access"],
 )
 async def take_away_role_from_user(
+    request: Request,
     user_id: UUID,
     body: RoleBaseUUID,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Remove a role from a user.
     """
-    user = await auth_service.check_access()
+    user = await auth_service.check_access(creds=access_token.credentials)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
@@ -217,7 +225,8 @@ async def patch_current_user(
         )
 
     try:
-        updated_user = await user_service.update_user(body)
+        user_uuid = UUID(user.get("user_id"))
+        updated_user = await user_service.update_user(user_uuid, body)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
