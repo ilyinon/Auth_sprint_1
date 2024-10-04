@@ -1,10 +1,11 @@
 from typing import List, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer  # noqa: F401
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBase, RoleResponse
+from services.role import RoleService, get_role_service
 
 router = APIRouter()
 
@@ -19,11 +20,19 @@ router = APIRouter()
     },
     tags=["Manage roles"],
 )
-def list_roles() -> Union[List[RoleResponse], HTTPExceptionResponse]:
+async def list_roles(
+    role_service: RoleService = Depends(get_role_service),
+) -> Union[List[RoleResponse], HTTPExceptionResponse]:
     """
     List of roles
     """
-    pass
+    # try:
+    return await role_service.list_roles()
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail="Could not retrieve roles",
+        # )
 
 
 @router.post(
@@ -38,13 +47,18 @@ def list_roles() -> Union[List[RoleResponse], HTTPExceptionResponse]:
     },
     tags=["Manage roles"],
 )
-def create_role(
-    body: RoleBase,
+async def create_role(
+    body: RoleBase, role_service: RoleService = Depends(get_role_service)
 ) -> Union[RoleResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Create role
     """
-    pass
+    # try:
+    return await role_service.create_role(body)
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create role"
+    #     )
 
 
 @router.delete(
@@ -59,13 +73,27 @@ def create_role(
     },
     tags=["Manage roles"],
 )
-def delete_role(
-    role_id: UUID,
+async def delete_role(
+    role_id: UUID, role_service: RoleService = Depends(get_role_service)
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Delete role
     """
-    pass
+    # try:
+    role = await role_service.get_role_by_id(role_id)
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+        )
+    await role_service.delete_role(role_id)
+    return None
+    # except HTTPException as e:
+    #     raise e
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail="Failed to delete role",
+    #     )
 
 
 @router.patch(
@@ -80,10 +108,24 @@ def delete_role(
     },
     tags=["Manage roles"],
 )
-def change_role(
-    role_id: UUID, body: RoleBase = ...
+async def change_role(
+    role_id: UUID, body: RoleBase, role_service: RoleService = Depends(get_role_service)
 ) -> Union[RoleResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Change role
     """
-    pass
+    # try:
+    role = await role_service.get_role_by_id(role_id)
+    if not role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+        )
+    updated_role = await role_service.update_role(role_id, body)
+    return updated_role
+    # except HTTPException as e:
+    #     raise e
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    #         detail="Failed to update role",
+    #     )

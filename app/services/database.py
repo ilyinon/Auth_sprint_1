@@ -46,8 +46,8 @@ class PostgresqlEngine(AsyncDbEngine):
         await self.db_session.refresh(new_object)
         return new_object
 
-    async def update(self, object_id: UUID, object_data: Any) -> Optional[Any]:
-        obj = await self.get_by_id(object_id, object_data.__class__)
+    async def update(self, object_id: UUID, object_data: Any, Object: Any) -> Optional[Any]:
+        obj = await self.get_by_id(object_id, Object)
         if obj:
             for key, value in object_data.dict().items():
                 setattr(obj, key, value)
@@ -55,8 +55,8 @@ class PostgresqlEngine(AsyncDbEngine):
             await self.db_session.refresh(obj)
         return obj
 
-    async def delete(self, object_id: UUID) -> None:
-        obj = await self.get_by_id(object_id, Base)
+    async def delete(self, object_id: UUID, Object: Any) -> None:
+        obj = await self.get_by_id(object_id, Object)
         if obj:
             await self.db_session.delete(obj)
             await self.db_session.commit()
@@ -81,11 +81,11 @@ class BaseDb:
     async def create(self, object_data: Any, Object: Any) -> Any:
         return await self.db_engine.create(object_data, Object)
 
-    async def update(self, object_id: UUID, object_data: Any) -> Optional[Any]:
-        return await self.db_engine.update(object_id, object_data)
+    async def update(self, object_id: UUID, object_data: Any, Object: Any) -> Optional[Any]:
+        return await self.db_engine.update(object_id, object_data, Object)
 
-    async def delete(self, object_id: UUID) -> None:
-        await self.db_engine.delete(object_id)
+    async def delete(self, object_id: UUID, Object: Any) -> None:
+        await self.db_engine.delete(object_id, Object)
 
     async def list_all(self, Object: Any) -> List[Any]:
         return await self.db_engine.list_all(Object)

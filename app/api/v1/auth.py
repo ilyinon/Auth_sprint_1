@@ -1,5 +1,6 @@
 from typing import Annotated, List, Literal, Optional, Union
 
+from services.session import SessionService, get_session_service
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 from fastapi.exceptions import HTTPException
@@ -62,7 +63,7 @@ async def signup(
     if is_exist_username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The usernmae is already in use",
+            detail="The username is already in use",
         )
     logger.info(f"Request to create {user_create}")
     created_new_user = await user_service.create_user(user_create)
@@ -130,7 +131,7 @@ async def logout(
     tags=["Authorization"],
 )
 async def refresh_tokens(
-    token_details: dict = Depends(RefreshTokenBearer())
+    token_details: dict = Depends(RefreshTokenBearer()),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
     expiry_timestamp = token_details["exp"]
     logger.info(f"token info {token_details}")
@@ -140,9 +141,8 @@ async def refresh_tokens(
         return new_access_token
 
     raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
-
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+    )
 
 
 @router.get(
