@@ -11,6 +11,7 @@ from services.cache import BaseCache, RedisCacheEngine
 
 logger = logging.getLogger(__name__)
 
+
 class SessionService(BaseCache):
     def __init__(self, cache: BaseCache):
         super().__init__(cache)
@@ -18,7 +19,9 @@ class SessionService(BaseCache):
     async def delete_session(self, session_id: UUID) -> None:
         await self.delete_by_key("session", session_id)
 
-    async def store_session(self, session_id: UUID, session_data: SessionResponse, expiration: int) -> None:
+    async def store_session(
+        self, session_id: UUID, session_data: SessionResponse, expiration: int
+    ) -> None:
         await self.put_by_key(session_data, expiration, "session", session_id)
 
     async def get_session(self, session_id: UUID) -> Optional[SessionResponse]:
@@ -29,9 +32,7 @@ class SessionService(BaseCache):
 
 
 @lru_cache()
-def get_session_service(
-    redis: Redis = Depends(get_redis)
-) -> SessionService:
+def get_session_service(redis: Redis = Depends(get_redis)) -> SessionService:
     redis_cache_engine = RedisCacheEngine(redis)
     cache_engine = BaseCache(redis_cache_engine)
 

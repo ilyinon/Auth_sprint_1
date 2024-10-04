@@ -11,11 +11,25 @@ class UserBase(OrjsonBaseModel):
     full_name: str = Field(title="Full Name")
 
 
+class UserLoginModel(OrjsonBaseModel):
+    email: str = Field()
+    password: str = Field()
+
+
 class UserCreate(UserBase):
     password: str = Field(title="Password")
 
 
 class UserResponse(UserBase):
+    id: UUID
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
+class UserResponseLogin(UserBase):
+    hashed_password: str = Field()
     id: UUID
 
     class Config:

@@ -89,7 +89,7 @@ class BaseDb:
 
     async def list_all(self, Object: Any) -> List[Any]:
         return await self.db_engine.list_all(Object)
-    
+
     async def get_by_key(self, key: str, value: Any, Object: Any) -> Optional[Any]:
         query = select(Object).where(getattr(Object, key) == value)
         result = await self.db_engine.execute(query)

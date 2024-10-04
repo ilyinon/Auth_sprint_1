@@ -18,6 +18,11 @@ from redis.asyncio import Redis
 from schemas.auth import Credentials, Payload, TwoTokens
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from datetime import datetime, timedelta
+import jwt
+from core.config import auth_settings
+
+ACCESS_TOKEN_EXPIRY = 1800
 
 
 class AuthService:
