@@ -14,8 +14,6 @@ from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
 
-# from services.utils import get_current_user
-
 get_token = HTTPBearer(auto_error=False)
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -98,7 +96,6 @@ async def logout(
     request: Request,
     access_token: str = Depends(get_token),
     auth_service: AuthService = Depends(get_auth_service),
-    # current_user: UserResponse = Depends(get_current_user)
 ) -> Optional[HTTPExceptionResponse]:
     user_agent = request.headers.get("user-agent")
     logger.info(f"Log out for {access_token.credentials}")
