@@ -1,17 +1,34 @@
-from typing import Annotated, List, Optional, Union
+from typing import Annotated, List, Literal, Optional, Union
 
 from core.logger import logger
-from fastapi import APIRouter, Body, Depends, status
+from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
-from schemas.auth import Credentials, TwoTokens
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt.exceptions import InvalidTokenError
+from passlib.context import CryptContext
+from schemas.auth import Credentials, TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
 from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
 
+# from services.utils import get_current_user
+
 get_token = HTTPBearer(auto_error=False)
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
 
 
 router = APIRouter()
@@ -30,7 +47,7 @@ router = APIRouter()
 async def signup(
     user_create: UserCreate, user_service: UserService = Depends(get_user_service)
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
-    
+
     is_exist_user = await user_service.get_user_by_email(user_create.email)
     if is_exist_user:
         raise HTTPException(
@@ -53,34 +70,46 @@ async def signup(
     tags=["Authorization"],
 )
 async def login(
-    credentials: Credentials, auth_service: AuthService = Depends(get_auth_service)
+    form_data: UserLoginModel,
+    request: Request,
+    response: Response,
+    user_service: UserService = Depends(get_user_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    tokens = await auth_service.login(credentials)
-    if not tokens:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
-        )
-    return tokens
+    if await user_service.get_user_by_email(form_data.email):
+        logger.info(f"user agent is {request.headers.get('user-agent')}")
+        tokens = await auth_service.login(form_data.email, form_data.password)
+        if tokens:
+            return tokens
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+    )
 
 
 @router.post(
     "/logout",
     response_model=None,
-    status_code=status.HTTP_204_NO_CONTENT,
+    status_code=status.HTTP_200_OK,
     summary="User logout",
     responses={status.HTTP_401_UNAUTHORIZED: {"model": HTTPExceptionResponse}},
     tags=["Authorization"],
 )
 async def logout(
+    request: Request,
     access_token: str = Depends(get_token),
     auth_service: AuthService = Depends(get_auth_service),
+    # current_user: UserResponse = Depends(get_current_user)
 ) -> Optional[HTTPExceptionResponse]:
-    if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
-        )
-    await auth_service.check_access()
-    await auth_service.logout()
+    user_agent = request.headers.get("user-agent")
+    logger.info(f"Log out for {access_token.credentials}")
+
+    if await auth_service.check_access(
+        creds=access_token.credentials, allow_roles=None
+    ):
+        await auth_service.logout(access_token.credentials)
+        return status.HTTP_200_OK
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.post(
@@ -116,10 +145,16 @@ async def refresh_tokens(
     },
     tags=["Authorization"],
 )
-def check_access(
-    allow_roles: Optional[List[AllowRole]] = None,
+async def check_access(
+    access_token: Annotated[str, Depends(get_token)],
+    allow_roles: Annotated[
+        list[Literal["admin", "user"]], Query(description="Кому доступно")
+    ] = None,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
-    """
-    Check access
-    """
-    pass
+    logger.info(f"Log out for {access_token}")
+
+    if await auth_service.check_access(creds=access_token, allow_roles=None):
+        return status.HTTP_200_OK
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

@@ -13,3 +13,16 @@ class RefreshToken(OrjsonBaseModel):
 
 class TwoTokens(RefreshToken):
     access_token: str
+
+
+class UserLoginModel(OrjsonBaseModel):
+    email: str = Field()
+    password: str = Field()
+
+
+class Payload(OrjsonBaseModel):
+    user: str
+    roles: list
+    exp: int
+    jti: str
+    refresh: bool
