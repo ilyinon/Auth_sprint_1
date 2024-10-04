@@ -12,6 +12,7 @@ from services.role import RoleService, get_role_service
 
 get_token = HTTPBearer(auto_error=False)
 
+
 router = APIRouter()
 
 
@@ -26,15 +27,10 @@ router = APIRouter()
     tags=["Manage roles"],
 )
 async def list_roles(
-    request: Request,
     access_token: str = Depends(get_token),
     role_service: RoleService = Depends(get_role_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[List[RoleResponse], HTTPExceptionResponse]:
-    """
-    List of roles
-    """
-    logger.info(f"get roles with token {access_token.credentials}")
 
     if access_token:
         logger.info(f"Check access for {access_token.credentials}")
@@ -46,12 +42,6 @@ async def list_roles(
             return await role_service.list_roles()
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail="Could not retrieve roles",
-    # )
 
 
 @router.post(
@@ -67,17 +57,25 @@ async def list_roles(
     tags=["Manage roles"],
 )
 async def create_role(
-    body: RoleBase, role_service: RoleService = Depends(get_role_service)
+    body: RoleBase,
+    access_token: str = Depends(get_token),
+    role_service: RoleService = Depends(get_role_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[RoleResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Create role
     """
-    # try:
-    return await role_service.create_role(body)
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to create role"
-    #     )
+    if access_token:
+        logger.info(f"Check access for {access_token.credentials}")
+
+        if await auth_service.check_access_with_roles(
+            access_token.credentials, ["user"]
+        ):
+            new_role = await role_service.create_role(body)
+            if new_role:
+                return new_role
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.delete(
@@ -93,26 +91,25 @@ async def create_role(
     tags=["Manage roles"],
 )
 async def delete_role(
-    role_id: UUID, role_service: RoleService = Depends(get_role_service)
+    role_id: UUID,
+    access_token: str = Depends(get_token),
+    role_service: RoleService = Depends(get_role_service),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Delete role
     """
-    # try:
-    role = await role_service.get_role_by_id(role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-        )
-    await role_service.delete_role(role_id)
-    return None
-    # except HTTPException as e:
-    #     raise e
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail="Failed to delete role",
-    #     )
+    if access_token:
+        logger.info(f"Check access for {access_token.credentials}")
+
+        if await auth_service.check_access_with_roles(
+            access_token.credentials, ["user"]
+        ):
+            if await role_service.get_role_by_id(role_id):
+                role_service.delete_role(role_id)
+                return status.HTTP_200_OK
+
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.patch(
@@ -128,23 +125,27 @@ async def delete_role(
     tags=["Manage roles"],
 )
 async def change_role(
-    role_id: UUID, body: RoleBase, role_service: RoleService = Depends(get_role_service)
+    role_id: UUID,
+    body: RoleBase,
+    access_token: str = Depends(get_token),
+    role_service: RoleService = Depends(get_role_service),
 ) -> Union[RoleResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Change role
     """
-    # try:
-    role = await role_service.get_role_by_id(role_id)
-    if not role:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-        )
-    updated_role = await role_service.update_role(role_id, body)
-    return updated_role
-    # except HTTPException as e:
-    #     raise e
-    # except Exception as e:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-    #         detail="Failed to update role",
-    #     )
+    if access_token:
+        logger.info(f"Check access for {access_token.credentials}")
+
+        if await auth_service.check_access_with_roles(
+            access_token.credentials, ["user"]
+        ):
+            # try:
+            if await role_service.get_role_by_id(role_id):
+                updated_role = await role_service.update_role(role_id, body)
+                if updated_role:
+                    return updated_role
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+                )
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
