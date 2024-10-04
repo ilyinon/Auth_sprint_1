@@ -8,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class AsyncDbEngine(ABC):
-
     @abstractmethod
     async def get_by_id(self, object_id: UUID, Object: Any) -> Optional[Any]:
         pass
@@ -46,7 +45,9 @@ class PostgresqlEngine(AsyncDbEngine):
         await self.db_session.refresh(new_object)
         return new_object
 
-    async def update(self, object_id: UUID, object_data: Any, Object: Any) -> Optional[Any]:
+    async def update(
+        self, object_id: UUID, object_data: Any, Object: Any
+    ) -> Optional[Any]:
         obj = await self.get_by_id(object_id, Object)
         if obj:
             for key, value in object_data.dict().items():
@@ -81,7 +82,9 @@ class BaseDb:
     async def create(self, object_data: Any, Object: Any) -> Any:
         return await self.db_engine.create(object_data, Object)
 
-    async def update(self, object_id: UUID, object_data: Any, Object: Any) -> Optional[Any]:
+    async def update(
+        self, object_id: UUID, object_data: Any, Object: Any
+    ) -> Optional[Any]:
         return await self.db_engine.update(object_id, object_data, Object)
 
     async def delete(self, object_id: UUID, Object: Any) -> None:

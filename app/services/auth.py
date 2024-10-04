@@ -27,16 +27,17 @@ class AuthService:
         self.auth_jwt = jwt_auth
 
     async def login(self, email, hashed_password) -> Optional[TwoTokens]:
-        logger.info("Start to login procedure")
+        logger.info(f"Start to login procedure with {email}")
         result = await self.get_user_by_email(email)
         user = result.scalars().first()
         logger.info(f"User has the following entry in db {user}")
         if user:
             if user.check_password(hashed_password):
                 logger.info(f"User {email} provided the correct password")
-                user_roles = await self.db.execute(
+                r = await self.db.execute(
                     select(Role.name).where(UserRole.user_id == user.id).join(UserRole)
                 )
+                user_roles = [role[0] for role in r.fetchall()]
                 logger.info(f"User {email} has roles {user_roles}")
                 user_data = {
                     "email": user.email,
@@ -50,7 +51,7 @@ class AuthService:
 
     async def get_user_by_email(self, email: EmailStr) -> Optional[User]:
         logger.info(f"Get user by email {email}")
-        return await self.db.execute(select(User).where(email == email))
+        return await self.db.execute(select(User).where(User.email == email))
 
     async def create_tokens(
         self, user: User, is_exist: bool = True, user_data={}
@@ -107,18 +108,19 @@ class AuthService:
     async def check_access_with_roles(
         self, creds, allow_roles: list[str] = None
     ) -> None:
+        logger.info(f"check {creds} against {allow_roles}")
         user_payload = await self.check_access(creds)
         if user_payload:
             logger.info("check roles if allow")
-            if user_payload.get("roles", None):
+            if not user_payload.get("roles", None):
                 logger.info("User has no roles")
 
             else:
                 if allow_roles:
                     logger.info(f"check if user has permission is {allow_roles}")
                     if not set(allow_roles) & set(user_payload.get("roles", "fake")):
-                        return None
-                return user_payload
+                        return False
+                return True
         return False
 
     async def verify_jwt(self, jwtoken: str) -> bool:
