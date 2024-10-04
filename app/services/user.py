@@ -4,6 +4,9 @@ from typing import Optional
 from uuid import UUID
 
 from async_fastapi_jwt_auth import AuthJWT
+from app.models.role import Role
+from app.schemas.role import RoleBaseUUID
+from app.schemas.session import SessionResponse
 from db.pg import get_session
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
@@ -11,7 +14,6 @@ from models.user import User
 from pydantic import EmailStr
 from schemas.user import UserCreate, UserPatch, UserResponse, UserResponseLogin
 from services.database import BaseDb, PostgresqlEngine
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -62,6 +64,32 @@ class UserService:
         if updated_user:
             return UserResponse.from_orm(updated_user)
 
+    async def delete_user(self, user_id: UUID) -> None:
+        await self.db.delete(user_id, User)
+
+    async def add_role_to_user(self, user_id: UUID, role_data: RoleBaseUUID) -> None:
+        user = await self.db.get_by_id(user_id, User)
+        if not user:
+            raise ValueError("User not found")
+
+        role = await self.db.get_by_id(role_data.role_id, Role)
+        if not role:
+            raise ValueError("Role not found")
+
+        user.roles.append(role)
+        await self.db.update(user_id, user)
+
+    async def remove_role_from_user(self, user_id: UUID, role_data: RoleBaseUUID) -> None:
+        user = await self.db.get_by_id(user_id, User)
+        if not user:
+            raise ValueError("User not found")
+
+        role = await self.db.get_by_id(role_data.role_id, Role)
+        if not role:
+            raise ValueError("Role not found")
+
+        user.roles.remove(role)
+        await self.db.update(user_id, user)
 
 @lru_cache()
 def get_user_service(

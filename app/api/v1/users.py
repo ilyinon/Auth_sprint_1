@@ -14,7 +14,6 @@ from services.user import UserService, get_user_service
 
 router = APIRouter()
 
-
 @router.delete(
     "/sessions/{session_id}",
     summary="Delete user session",
@@ -33,7 +32,11 @@ async def delete_user_session(
     """
     Delete user session by session ID.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    user = await auth_service.check_access()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
     session = await session_service.get_session(session_id)
     if not session:
@@ -44,9 +47,7 @@ async def delete_user_session(
     await session_service.delete_session(session_id)
     return {"message": "Session deleted successfully."}
 
-
 PageSizeType = Optional[conint(ge=1)]
-
 
 @router.get(
     "/sessions",
@@ -68,9 +69,12 @@ async def get_user_sessions(
     """
     Retrieve user's session history with optional pagination and activity filter.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    user = await auth_service.check_access()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
-    # Simulate session retrieval from cache or database using the service
     sessions = await session_service.get_all_sessions()  # Implement in service
     if not sessions:
         return []
@@ -80,7 +84,6 @@ async def get_user_sessions(
     end = start + page_size
 
     return sessions[start:end]
-
 
 @router.post(
     "/{user_id}/roles",
@@ -103,7 +106,11 @@ async def add_role_to_user(
     """
     Add a role to a user.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    user = await auth_service.check_access()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
     try:
         await user_service.add_role_to_user(user_id, body)
@@ -111,7 +118,6 @@ async def add_role_to_user(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return None
-
 
 @router.delete(
     "/{user_id}/roles",
@@ -134,7 +140,11 @@ async def take_away_role_from_user(
     """
     Remove a role from a user.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    user = await auth_service.check_access()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
     try:
         await user_service.remove_role_from_user(user_id, body)
@@ -142,7 +152,6 @@ async def take_away_role_from_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     return None
-
 
 @router.get(
     "/",
@@ -161,16 +170,19 @@ async def get_user_info(
     """
     Retrieve current user's information.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
-
-    user = await user_service.get_current_user()
+    user = await auth_service.check_access()
     if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
+
+    user_info = await user_service.get_current_user()
+    if not user_info:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    return user
-
+    return user_info
 
 @router.patch(
     "/",
@@ -190,7 +202,11 @@ async def patch_current_user(
     """
     Update the current user's profile.
     """
-    await auth_service.check_access()  # Ensure the user is authenticated
+    user = await auth_service.check_access()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
     try:
         updated_user = await user_service.update_user(body)

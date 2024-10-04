@@ -29,6 +29,17 @@ class SessionService(BaseCache):
         if session_data:
             return SessionResponse(**session_data)
         return None
+    
+    async def get_all_sessions(self) -> list[SessionResponse]:
+        session_keys = await self.get_all_keys("session")
+        sessions = []
+
+        for key in session_keys:
+            session_data = await self.get_by_key("session", key, SessionResponse)
+            if session_data:
+                sessions.append(SessionResponse(**session_data))
+
+        return sessions
 
 
 @lru_cache()

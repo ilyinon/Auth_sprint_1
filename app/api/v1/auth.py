@@ -6,7 +6,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext
+from passlib.context import CryptContext 
 from schemas.auth import Credentials, TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import AllowRole
@@ -48,7 +48,7 @@ async def signup(
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
 
     is_exist_user = await user_service.get_user_by_email(user_create.email)
-    if not await user_service.get_user_by_email(user_create.email):
+    if not is_exist_user:
         if not await user_service.get_user_by_username(user_create.username):
             logger.info(f"Request to create {user_create}")
             created_new_user = await user_service.create_user(user_create)
@@ -76,14 +76,32 @@ async def login(
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    if await user_service.get_user_by_email(form_data.email):
+    user = await user_service.get_user_by_email(form_data.email)
+    if user:
+        if await auth_service.is_token_in_redis(form_data.email):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Active session exists for this user."
+            )
+
         logger.info(f"user agent is {request.headers.get('user-agent')}")
         tokens = await auth_service.login(form_data.email, form_data.password)
         if tokens:
             return tokens
+
     raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Bad username or password"
     )
+
+    # if await user_service.get_user_by_email(form_data.email):
+    #     logger.info(f"user agent is {request.headers.get('user-agent')}")
+    #     tokens = await auth_service.login(form_data.email, form_data.password)
+    #     if tokens:
+    #         return tokens
+    # raise HTTPException(
+    #     status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+    # )
 
 
 @router.post(

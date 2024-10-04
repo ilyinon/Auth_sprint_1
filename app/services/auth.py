@@ -50,7 +50,7 @@ class AuthService:
 
     async def get_user_by_email(self, email: EmailStr) -> Optional[User]:
         logger.info(f"Get user by email {email}")
-        return await self.db.execute(select(User).where(email == email))
+        return await self.db.execute(select(User).where(User.email == email))
 
     async def create_tokens(
         self, user: User, is_exist: bool = True, user_data={}
@@ -172,6 +172,12 @@ class AuthService:
         if user:
             if decoded_token["refresh"]:
                 return await self.create_tokens(user, True, decoded_token["user"])
+        return False
+
+    async def is_token_in_redis(self, refresh_token: str) -> bool:
+        decoded_token = await self.decode_jwt(refresh_token)
+        if decoded_token and await self.redis.exists(decoded_token["jti"]):
+            return True
         return False
 
 
