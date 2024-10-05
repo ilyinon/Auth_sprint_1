@@ -7,7 +7,7 @@ import jwt as jwt_auth
 from core.config import auth_settings
 from core.logger import logger
 from db.pg import get_session
-from db.redis import add_jti_to_blocklist, get_redis
+from db.redis import add_jti_to_blocklist, get_redis, token_in_blocklist
 from fastapi import Depends
 from models.role import Role, UserRole
 from models.user import User
@@ -131,6 +131,10 @@ class AuthService:
             logger.info(f"Get payload from decode_jwt {payload}")
         except:
             return None
+
+        if await token_in_blocklist(payload["jti"]):
+            logger.info(f"Token {payload['jti']} is in blacklist")
+            return None
         logger.info(f"Payload is {payload}")
         return Payload(**payload)
 
@@ -169,6 +173,7 @@ class AuthService:
         logger.info("From auth service start to refresh token")
         decoded_token = await self.decode_jwt(refresh_token)
         logger.info(f"decoded refresh token: {decoded_token}")
+        await self.revoke_access_token(decoded_token["jti"])
         user = await self.get_user_by_email(decoded_token["user"]["email"])
         logger.info(f"get user to refresh: {user}")
         if user:
