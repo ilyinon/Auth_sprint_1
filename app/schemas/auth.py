@@ -38,3 +38,9 @@ class Payload(OrjsonBaseModel):
     __pydantic_config__ = ConfigDict(extra="forbid")
 
     user: UserData
+
+
+class TokenPayload(OrjsonBaseModel):
+    email: str
+    user_id: str
+    roles: list

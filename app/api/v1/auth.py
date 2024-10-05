@@ -1,7 +1,7 @@
-from typing import Annotated, List, Literal, Optional, Union
+from typing import Annotated, Literal, Optional, Union
 
 from core.logger import logger
-from fastapi import APIRouter, Body, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -9,25 +9,11 @@ from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext 
 from schemas.auth import Credentials, TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
-from schemas.role import AllowRole
 from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
 from services.user import UserService, get_user_service
 
 get_token = HTTPBearer(auto_error=False)
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
 
 
 router = APIRouter()
@@ -46,11 +32,12 @@ router = APIRouter()
 async def signup(
     user_create: UserCreate, user_service: UserService = Depends(get_user_service)
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
-
-    is_exist_user = await user_service.get_user_by_email(user_create.email)
-    if not is_exist_user:
+    """
+    Register a new user.
+    """
+    logger.info(f"Requested /signup with {user_create}")
+    if not await user_service.get_user_by_email(user_create.email):
         if not await user_service.get_user_by_username(user_create.username):
-            logger.info(f"Request to create {user_create}")
             created_new_user = await user_service.create_user(user_create)
             return created_new_user
     raise HTTPException(
@@ -73,18 +60,15 @@ async def login(
     form_data: UserLoginModel,
     request: Request,
     response: Response,
-    user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
-    user = await user_service.get_user_by_email(form_data.email)
-    if user:
-        if await auth_service.is_token_in_redis(form_data.email):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Active session exists for this user."
-            )
-
+    """
+    Login a user to get a tokens pair.
+    """
+    logger.info(f"Requested /register with {form_data}")
+    if await auth_service.get_user_by_email(form_data.email):
         logger.info(f"user agent is {request.headers.get('user-agent')}")
+
         tokens = await auth_service.login(form_data.email, form_data.password)
         if tokens:
             return tokens
@@ -117,8 +101,11 @@ async def logout(
     access_token: str = Depends(get_token),
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[HTTPExceptionResponse]:
+    """
+    Log out the user from service.
+    """
+    logger.info(f"Log out user with token {access_token.credentials}")
     if access_token:
-        logger.info(f"Log out for {access_token.credentials}")
         user_agent = request.headers.get("user-agent")
         if await auth_service.check_access(creds=access_token.credentials):
             await auth_service.logout(access_token.credentials)
@@ -142,6 +129,10 @@ async def refresh_tokens(
     request: Request,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
+    """
+    Refresh tokens.
+    """
+    logger.info(f"Refresh token with token {refresh_token}")
     if refresh_token:
         logger.info(f"token to refresh {refresh_token}")
         tokens = await auth_service.refresh_tokens(refresh_token)
@@ -149,20 +140,6 @@ async def refresh_tokens(
             return tokens
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-    # token_details: dict = Depends(RefreshTokenBearer())
-    # expiry_timestamp = token_details["exp"]
-    # if datetime.fromtimestamp(expiry_timestamp) > datetime.now():
-    #     new_access_token = create_access_token(user_data=token_details["user"])
-
-    #     return JSONResponse(content={"access_token": new_access_token})
-
-    # raise InvalidToken
-
-    # if not refreshed_tokens:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED, detail="No token to refresh"
-    #     )
-    # return refreshed_tokens
 
 
 @router.get(
@@ -182,6 +159,11 @@ async def check_access(
     allow_roles: Literal["admin", "user"] = None,
     auth_service: AuthService = Depends(get_auth_service),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
+    """
+    check access.
+    """
+    logger.info(f"Check access with token {access_token.credentials}")
+
     if access_token:
         logger.info(f"Check access for {access_token.credentials}")
 
