@@ -6,7 +6,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.security import HTTPBearer  # noqa: F401
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext 
+from passlib.context import CryptContext
 from schemas.auth import Credentials, TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.user import UserCreate, UserResponse
@@ -74,8 +74,7 @@ async def login(
             return tokens
 
     raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Bad username or password"
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
     )
 
     # if await user_service.get_user_by_email(form_data.email):
@@ -162,8 +161,6 @@ async def check_access(
     """
     check access.
     """
-    logger.info(f"Check access with token {access_token.credentials}")
-
     if access_token:
         logger.info(f"Check access for {access_token.credentials}")
 
@@ -172,4 +169,7 @@ async def check_access(
         ):
             return status.HTTP_200_OK
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
