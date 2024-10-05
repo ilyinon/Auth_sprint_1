@@ -87,8 +87,9 @@ async def async_main():
         if not role_id:
             role_id = await create_admin_role(db)
 
-        if await add_admin_role_to_user(db, user_id, role_id):
-            return True
+        if not await check_if_user_admin(db, user_id, role_id):
+            if await add_admin_role_to_user(db, user_id, role_id):
+                return True
 
 
 def main():
