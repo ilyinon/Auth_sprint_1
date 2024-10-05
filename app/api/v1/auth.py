@@ -103,7 +103,6 @@ async def logout(
     """
     Log out the user from service.
     """
-    logger.info(f"Log out user with token {access_token.credentials}")
     if access_token:
         user_agent = request.headers.get("user-agent")
         if await auth_service.check_access(creds=access_token.credentials):
