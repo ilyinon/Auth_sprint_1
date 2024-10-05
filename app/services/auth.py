@@ -120,7 +120,7 @@ class AuthService:
                     logger.info(f"check if user has permission is {allow_roles}")
                     if not set(allow_roles) & set(user_payload.get("roles", "fake")):
                         return False
-                return True
+            return True
         return False
 
     async def verify_jwt(self, jwtoken: str) -> bool:
