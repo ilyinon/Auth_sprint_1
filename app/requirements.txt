@@ -18,3 +18,4 @@ psycopg2-binary==2.9.9
 passlib==1.7.4
 python-multipart==0.0.12
 bcrypt==4.2.0
+typer==0.12.5
