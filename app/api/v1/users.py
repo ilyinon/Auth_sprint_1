@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from pydantic import conint
+from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
@@ -15,7 +16,6 @@ from services.user import UserService, get_user_service
 get_token = HTTPBearer(auto_error=False)
 
 router = APIRouter()
-
 
 @router.delete(
     "/sessions/{session_id}",
@@ -49,9 +49,8 @@ async def delete_user_session(
             status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
         )
 
-        await session_service.delete_session(session_id)
-        return {"message": "Session deleted successfully."}
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    await session_service.delete_session(session_id)
+    return {"message": "Session deleted successfully."}
 
 PageSizeType = Optional[conint(ge=1)]
 
@@ -87,12 +86,11 @@ async def get_user_sessions(
     if not sessions:
         return []
 
-        # Optional pagination logic
-        start = (page_number - 1) * page_size
-        end = start + page_size
+    # Optional pagination logic
+    start = (page_number - 1) * page_size
+    end = start + page_size
 
-        return sessions[start:end]
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    return sessions[start:end]
 
 @router.post(
     "/{user_id}/roles/{role_id}",
@@ -123,10 +121,10 @@ async def add_role_to_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
 
-    # try:
-    msg = await user_service.add_role_to_user(user_id, role_id)
-    # except ValueError as e:
-    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    try:
+        msg = await user_service.add_role_to_user(user_id, role_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
     return {"message": msg}
 
@@ -159,10 +157,10 @@ async def take_away_role_from_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
 
-    # try:
-    msg = await user_service.remove_role_from_user(user_id, role_id)
-    # except ValueError as e:
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    try:
+        msg = await user_service.remove_role_from_user(user_id, role_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
     return {"message": msg}
 
@@ -232,5 +230,4 @@ async def patch_current_user(
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
-        return updated_user
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    return updated_user
