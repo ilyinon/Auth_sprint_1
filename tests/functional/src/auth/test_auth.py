@@ -24,9 +24,6 @@ user = {
 async def test_registration(session, db_truncate):
     endpoint = "signup"
     url = url_template.format(service_url=test_settings.app_dsn, endpoint=endpoint)
-    # async with db_truncate:
-    #     pass
-
     async with session.post(url, json=user) as response:
 
         body = await response.json()
