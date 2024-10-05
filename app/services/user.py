@@ -3,7 +3,7 @@ from functools import lru_cache
 from typing import Optional
 from uuid import UUID
 
-from models.role import Role
+from models.role import Role, UserRole
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
 from db.pg import get_session
@@ -48,7 +48,9 @@ class UserService:
             return UserResponse.from_orm(user)
         return None
 
-    async def update_user(self, user_id: UUID, user_patch: UserPatch) -> Optional[UserResponse]:
+    async def update_user(
+        self, user_id: UUID, user_patch: UserPatch
+    ) -> Optional[UserResponse]:
         current_user = await self.db.get_by_id(user_id, User)
 
         if not current_user:
@@ -63,34 +65,41 @@ class UserService:
     async def delete_user(self, user_id: UUID) -> None:
         await self.db.delete(user_id, User)
 
-    async def add_role_to_user(self, user_id: UUID, role_data: RoleBaseUUID) -> None:
+    async def add_role_to_user(self, user_id: UUID, role_id: UUID) -> None:
         user = await self.db.get_by_id(user_id, User)
         if not user:
             raise ValueError("User not found")
 
-        role = await self.db.get_by_id(role_data.role_id, Role)
+        role = await self.db.get_by_id(role_id, Role)
         if not role:
             raise ValueError("Role not found")
 
-        user.roles.append(role)
-        await self.db.update(user_id, user)
+        user_role = UserRole(user_id=user.id, role_id=role.id)
 
-    async def remove_role_from_user(self, user_id: UUID, role_data: RoleBaseUUID) -> None:
+        await self.db.create(user_role, UserRole)
+
+        return f"Role {role_id} assigned succesfully to User {user_id}"
+
+    async def remove_role_from_user(self, user_id: UUID, role_id: UUID) -> None:
         user = await self.db.get_by_id(user_id, User)
         if not user:
             raise ValueError("User not found")
 
-        role = await self.db.get_by_id(role_data.role_id, Role)
+        role = await self.db.get_by_id(role_id, Role)
         if not role:
             raise ValueError("Role not found")
 
-        user.roles.remove(role)
-        await self.db.update(user_id, user)
+        user_role = await self.db.get_by_key('user_id', user.id, UserRole)
+        if not user_role or user_role.role_id != role.id:
+            raise ValueError("UserRole association not found")
+
+        await self.db.delete(user_role.id, UserRole)
+
+        return f"Role {role_id} removed succesfully from User {user_id}"
+
 
 @lru_cache()
-def get_user_service(
-    db_session: AsyncSession = Depends(get_session)
-) -> UserService:
+def get_user_service(db_session: AsyncSession = Depends(get_session)) -> UserService:
 
     db_engine = PostgresqlEngine(db_session)
     base_db = BaseDb(db_engine)

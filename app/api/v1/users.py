@@ -93,7 +93,7 @@ async def get_user_sessions(
     return sessions[start:end]
 
 @router.post(
-    "/{user_id}/roles",
+    "/{user_id}/roles/{role_id}",
     response_model=None,
     summary="Add role to user",
     responses={
@@ -107,7 +107,7 @@ async def get_user_sessions(
 async def add_role_to_user(
     request: Request,
     user_id: UUID,
-    body: RoleBaseUUID,
+    role_id: UUID,
     access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
@@ -121,15 +121,15 @@ async def add_role_to_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
 
-    try:
-        await user_service.add_role_to_user(user_id, body)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    # try:
+    msg = await user_service.add_role_to_user(user_id, role_id)
+    # except ValueError as e:
+    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
-    return None
+    return {"message": msg}
 
 @router.delete(
-    "/{user_id}/roles",
+    "/{user_id}/roles/{role_id}",
     summary="Remove role from user",
     response_model=None,
     responses={
@@ -143,7 +143,7 @@ async def add_role_to_user(
 async def take_away_role_from_user(
     request: Request,
     user_id: UUID,
-    body: RoleBaseUUID,
+    role_id: UUID,
     access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
@@ -157,12 +157,12 @@ async def take_away_role_from_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
 
-    try:
-        await user_service.remove_role_from_user(user_id, body)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    # try:
+    msg = await user_service.remove_role_from_user(user_id, role_id)
+    # except ValueError as e:
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
-    return None
+    return {"message": msg}
 
 @router.get(
     "/",

@@ -26,8 +26,6 @@ class User(IdMixin, TimestampMixin, Base):
         self.full_name = full_name
         self.hashed_password = generate_password_hash(password)
 
-    roles = relationship("UserRole", back_populates="user", lazy="selectin")
-
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.hashed_password, password)
 
