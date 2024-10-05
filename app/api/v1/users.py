@@ -4,9 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from pydantic import conint
-from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
-from schemas.role import RoleBaseUUID
+from schemas.role import RoleBaseUUID  # noqa
 from schemas.session import SessionResponse
 from schemas.user import UserPatch, UserResponse
 from services.auth import AuthService, get_auth_service
