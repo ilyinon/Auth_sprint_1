@@ -33,7 +33,6 @@ async def delete_user_session(
     access_token: str = Depends(get_token),
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
-    access_token: str = Depends(get_token),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Delete user session by session ID.
@@ -74,7 +73,6 @@ async def get_user_sessions(
     access_token: str = Depends(get_token),
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
-    access_token: str = Depends(get_token),
 ) -> Union[List[SessionResponse], HTTPExceptionResponse]:
     """
     Retrieve user's session history with optional pagination and activity filter.
@@ -115,7 +113,6 @@ async def add_role_to_user(
     access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
-    access_token: str = Depends(get_token),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Add a role to a user.
@@ -152,7 +149,6 @@ async def take_away_role_from_user(
     access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
-    access_token: str = Depends(get_token),
 ) -> Optional[Union[HTTPExceptionResponse, HTTPValidationError]]:
     """
     Remove a role from a user.
@@ -185,7 +181,6 @@ async def get_user_info(
     access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
-    access_token: str = Depends(get_token),
 ) -> Union[UserResponse, HTTPExceptionResponse]:
     """
     Retrieve current user's information.
@@ -221,7 +216,6 @@ async def patch_current_user(
     access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
-    access_token: str = Depends(get_token),
 ) -> Union[UserResponse, HTTPExceptionResponse, HTTPValidationError]:
     """
     Update the current user's profile.
