@@ -3,7 +3,6 @@ from functools import lru_cache
 from typing import Optional
 from uuid import UUID
 
-import jwt as jwt_auth
 from models.role import Role
 from schemas.role import RoleBaseUUID
 from schemas.session import SessionResponse
@@ -20,9 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 class UserService:
-    def __init__(self, db: BaseDb, auth_jwt: jwt_auth):
+    def __init__(self, db: BaseDb):
         self.db = db
-        self.auth_jwt = auth_jwt
 
     async def get_user_by_email(self, email: EmailStr) -> Optional[UserResponse]:
         logger.info(f"Checking if user with email {email} exists")
@@ -54,11 +52,11 @@ class UserService:
         current_user = await self.db.get_by_id(user_id, User)
 
         if not current_user:
-            return "User not found"
+            raise ValueError("User not found")
 
         user_data = jsonable_encoder(user_patch, exclude_unset=True)
 
-        updated_user = await self.db.update(user_id, user_data)
+        updated_user = await self.db.update(user_id, user_data, User)
         if updated_user:
             return UserResponse.from_orm(updated_user)
 
@@ -96,4 +94,4 @@ def get_user_service(
 
     db_engine = PostgresqlEngine(db_session)
     base_db = BaseDb(db_engine)
-    return UserService(base_db, jwt_auth)
+    return UserService(base_db)
