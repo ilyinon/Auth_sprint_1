@@ -20,11 +20,11 @@ class SessionService(BaseCache):
         await self.delete_by_key("session", session_id)
 
     async def store_session(
-        self, session_id: UUID, session_data: SessionResponse, expiration: int
+        self, session_id: UUID, session_data: SessionResponse
     ) -> None:
         await self.put_by_key(session_data, expiration, "session", session_id)
 
-    async def get_session(self, session_id: UUID) -> Optional[SessionResponse]:
+    async def get_sessions(self, session_id: UUID) -> Optional[SessionResponse]:
         session_data = await self.get_by_key("session", session_id, SessionResponse)
         if session_data:
             return SessionResponse(**session_data)

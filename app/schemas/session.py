@@ -10,8 +10,7 @@ class SessionResponse(OrjsonBaseModel):
     id: UUID = Field(..., title="Id")
     user_agent: str = Field(..., title="User Agent")
     created_at: datetime = Field(..., title="Created At")
-    modified_at: Optional[datetime] = Field(None, title="Modified At")
-    session_exp: Optional[datetime] = Field(None, title="Session Exp")
+    action: str = Field(..., title="action")
 
     class Config:
         orm_mode = True
