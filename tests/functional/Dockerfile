@@ -17,7 +17,4 @@ RUN mv /opt/tests/functional/conftest.py /opt/tests/conftest.py && \
     mv /opt/tests/functional/fixtures /opt/tests/
 
 
-ENTRYPOINT \
-    python3 tests/functional/utils/wait_for_es.py && \
-    python3 tests/functional/utils/wait_for_redis.py && \
-    python3 -m pytest tests -vvv --disable-warnings
+ENTRYPOINT find /opt/tests && python3 -m pytest tests -vvv --disable-warnings

@@ -1,5 +1,6 @@
 import os
 
+from async_fastapi_jwt_auth import AuthJWT
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DOTENV = os.path.abspath(os.path.join(os.path.dirname(__file__), "../..", ".env_test"))
@@ -13,36 +14,39 @@ class TestSettings(BaseSettings):
 
     project_name: str
 
-    elastic_host: str
-    elastic_port: int
-
     redis_host: str
     redis_port: int
 
-    app_host: str = "app_test"
-    app_port: int = 7000
+    pg_user: str
+    pg_password: str
+    pg_host: str
+    pg_port: int
+    pg_db: str
 
-    film_cache_expire_in_seconds: int
-    genre_cache_expire_in_seconds: int
-    person_cache_expire_in_seconds: int
+    authjwt_secret_key: str
+    authjwt_algorithm: str = "HS256"
 
-    movies_index: str = "movies_test"
-    genres_index: str = "genres_test"
-    persons_index: str = "persons_test"
+    jwt_access_token_expires_in_seconds: int = 1800
+    jwt_refresh_token_expires_in_days: int = 30
 
-    SIZE: int = 26
-
-    @property
-    def elastic_dsn(self):
-        return f"http://{self.elastic_host}:{self.elastic_port}"
+    app_dsn: str = "http://app:8000"
 
     @property
     def redis_dsn(self):
         return f"redis://{self.redis_host}:{self.redis_port}"
 
     @property
-    def app_dsn(self):
-        return f"http://{self.app_host}:{self.app_port}"
+    def database_dsn(self):
+        return f"postgresql+asyncpg://{self.pg_user}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
+
+    @property
+    def database_dsn_not_async(self):
+        return f"postgresql://{self.pg_user}:{self.pg_password}@{self.pg_host}:{self.pg_port}/{self.pg_db}"
 
 
-settings = TestSettings()
+test_settings = TestSettings()
+
+
+@AuthJWT.load_config
+def get_config():
+    return TestSettings()
