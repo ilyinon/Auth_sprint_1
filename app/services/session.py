@@ -3,8 +3,8 @@ from functools import lru_cache
 from typing import Optional
 from uuid import UUID
 
-from app.db.pg import get_session
-from app.services.database import BaseDb, PostgresqlEngine
+from db.pg import get_session
+from services.database import BaseDb, PostgresqlEngine
 from models.session import Session
 from fastapi import Depends
 from schemas.session import SessionResponse
