@@ -3,6 +3,7 @@ FROM python:3.12.4-slim
 
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV PYTHONPATH '/opt/app'
 
 WORKDIR /opt/app
 COPY requirements.txt /opt/app/requirements.txt
