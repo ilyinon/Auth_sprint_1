@@ -1,8 +1,8 @@
 from typing import List, Optional, Union
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPBearer  # noqa: F401
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import HTTPBearer
 from pydantic import conint
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBaseUUID
@@ -12,9 +12,9 @@ from services.auth import AuthService, get_auth_service
 from services.session import SessionService, get_session_service
 from services.user import UserService, get_user_service
 
-router = APIRouter()
-
 get_token = HTTPBearer(auto_error=False)
+
+router = APIRouter()
 
 
 @router.delete(
@@ -28,7 +28,9 @@ get_token = HTTPBearer(auto_error=False)
     tags=["Manage sessions"],
 )
 async def delete_user_session(
+    request: Request,
     session_id: UUID,
+    access_token: str = Depends(get_token),
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
     access_token: str = Depends(get_token),
@@ -36,21 +38,23 @@ async def delete_user_session(
     """
     Delete user session by session ID.
     """
-    if access_token:
-        # TODO: get use id from token payload
-        session = await session_service.get_session(session_id)
-        if not session:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-            )
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
+
+    session = await session_service.get_session(session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+        )
 
         await session_service.delete_session(session_id)
         return {"message": "Session deleted successfully."}
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-
 PageSizeType = Optional[conint(ge=1)]
-
 
 @router.get(
     "/sessions",
@@ -63,9 +67,11 @@ PageSizeType = Optional[conint(ge=1)]
     tags=["Manage sessions"],
 )
 async def get_user_sessions(
+    request: Request,
     active: Optional[bool] = None,
     page_size: PageSizeType = 50,
     page_number: PageSizeType = 1,
+    access_token: str = Depends(get_token),
     session_service: SessionService = Depends(get_session_service),
     auth_service: AuthService = Depends(get_auth_service),
     access_token: str = Depends(get_token),
@@ -73,13 +79,15 @@ async def get_user_sessions(
     """
     Retrieve user's session history with optional pagination and activity filter.
     """
-    if access_token:
-        # TODO: get use id from token payload
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
-        # Simulate session retrieval from cache or database using the service
-        sessions = await session_service.get_all_sessions()  # Implement in service
-        if not sessions:
-            return []
+    sessions = await session_service.get_all_sessions()  # Implement in service
+    if not sessions:
+        return []
 
         # Optional pagination logic
         start = (page_number - 1) * page_size
@@ -88,9 +96,8 @@ async def get_user_sessions(
         return sessions[start:end]
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
-
 @router.post(
-    "/{user_id}/roles",
+    "/{user_id}/roles/{role_id}",
     response_model=None,
     summary="Add role to user",
     responses={
@@ -102,8 +109,10 @@ async def get_user_sessions(
     tags=["Manage access"],
 )
 async def add_role_to_user(
+    request: Request,
     user_id: UUID,
-    body: RoleBaseUUID,
+    role_id: UUID,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
     access_token: str = Depends(get_token),
@@ -111,19 +120,21 @@ async def add_role_to_user(
     """
     Add a role to a user.
     """
-    if access_token:
-        # TODO: get use id from token payload
-        try:
-            await user_service.add_role_to_user(user_id, body)
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
-        return None
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+    # try:
+    msg = await user_service.add_role_to_user(user_id, role_id)
+    # except ValueError as e:
+    #     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
+    return {"message": msg}
 
 @router.delete(
-    "/{user_id}/roles",
+    "/{user_id}/roles/{role_id}",
     summary="Remove role from user",
     response_model=None,
     responses={
@@ -135,8 +146,10 @@ async def add_role_to_user(
     tags=["Manage access"],
 )
 async def take_away_role_from_user(
+    request: Request,
     user_id: UUID,
-    body: RoleBaseUUID,
+    role_id: UUID,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
     access_token: str = Depends(get_token),
@@ -144,19 +157,18 @@ async def take_away_role_from_user(
     """
     Remove a role from a user.
     """
-    if access_token:
-        # TODO: get use id from token payload
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
-        # TODO if user has this role
-        #
-        # TODO: try to delete remove role from user
-        # await user_service.remove_role_from_user(user_id, body)
+    # try:
+    msg = await user_service.remove_role_from_user(user_id, role_id)
+    # except ValueError as e:
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
-        # raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-        pass
-
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
+    return {"message": msg}
 
 @router.get(
     "/",
@@ -169,6 +181,8 @@ async def take_away_role_from_user(
     tags=["User profile"],
 )
 async def get_user_info(
+    request: Request,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
     access_token: str = Depends(get_token),
@@ -176,18 +190,20 @@ async def get_user_info(
     """
     Retrieve current user's information.
     """
-    if access_token:
-        # TODO: get use id from token payload
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
-        user = await user_service.get_current_user()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-            )
+    user_uuid = UUID(user.get("user_id"))
+    user_info = await user_service.get_current_user(user_uuid)
+    if not user_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
 
-        return user
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
-
+    return user_info
 
 @router.patch(
     "/",
@@ -200,7 +216,9 @@ async def get_user_info(
     tags=["User profile"],
 )
 async def patch_current_user(
+    request: Request,
     body: UserPatch,
+    access_token: str = Depends(get_token),
     user_service: UserService = Depends(get_user_service),
     auth_service: AuthService = Depends(get_auth_service),
     access_token: str = Depends(get_token),
@@ -208,13 +226,17 @@ async def patch_current_user(
     """
     Update the current user's profile.
     """
-    if access_token:
-        # TODO: get use id from token payload
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
+        )
 
-        try:
-            updated_user = await user_service.update_user(body)
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    try:
+        user_uuid = UUID(user.get("user_id"))
+        updated_user = await user_service.update_user(user_uuid, body)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
         return updated_user
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")

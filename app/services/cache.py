@@ -67,6 +67,11 @@ class RedisCacheEngine(AsyncCacheEngine):
         logger.info(f"Deleted {key} from cache")
         await self.redis.delete(key)
 
+    async def get_all_keys(self, prefix: str) -> list[str]:
+        keys = await self.redis.keys(f"{prefix}*")
+        logger.info(f"Retrieved all keys with prefix '{prefix}': {keys}")
+        return keys
+
 
 class BaseCache:
     def __init__(self, cache_engine: AsyncCacheEngine):
@@ -95,3 +100,6 @@ class BaseCache:
     async def delete_by_key(self, *args: Union[str, int]) -> None:
         key = self.cache_engine._generate_cache_key(*args)
         await self.cache_engine.delete_from_cache(key)
+
+    async def get_all_keys(self, prefix: str) -> list[str]:
+        return await self.cache_engine.get_all_keys(prefix)

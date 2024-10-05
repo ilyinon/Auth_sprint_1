@@ -50,10 +50,17 @@ class PostgresqlEngine(AsyncDbEngine):
     ) -> Optional[Any]:
         obj = await self.get_by_id(object_id, Object)
         if obj:
-            for key, value in object_data.dict().items():
+            if hasattr(object_data, "dict"):
+                update_data = object_data.dict(exclude_unset=True)
+            else:
+                update_data = object_data
+
+            for key, value in update_data.items():
                 setattr(obj, key, value)
+
             await self.db_session.commit()
             await self.db_session.refresh(obj)
+
         return obj
 
     async def delete(self, object_id: UUID, Object: Any) -> None:

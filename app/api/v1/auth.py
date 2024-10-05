@@ -3,8 +3,11 @@ from typing import Annotated, Literal, Optional, Union
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.exceptions import HTTPException
-from fastapi.security import HTTPBearer
-from schemas.auth import TwoTokens, UserLoginModel
+from fastapi.security import HTTPBearer  # noqa: F401
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jwt.exceptions import InvalidTokenError
+from passlib.context import CryptContext 
+from schemas.auth import Credentials, TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
@@ -69,9 +72,20 @@ async def login(
         tokens = await auth_service.login(form_data.email, form_data.password)
         if tokens:
             return tokens
+
     raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Bad username or password"
     )
+
+    # if await user_service.get_user_by_email(form_data.email):
+    #     logger.info(f"user agent is {request.headers.get('user-agent')}")
+    #     tokens = await auth_service.login(form_data.email, form_data.password)
+    #     if tokens:
+    #         return tokens
+    # raise HTTPException(
+    #     status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+    # )
 
 
 @router.post(

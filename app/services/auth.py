@@ -176,6 +176,12 @@ class AuthService:
                 return await self.create_tokens(user, True, decoded_token["user"])
         return False
 
+    async def is_token_in_redis(self, refresh_token: str) -> bool:
+        decoded_token = await self.decode_jwt(refresh_token)
+        if decoded_token and await self.redis.exists(decoded_token["jti"]):
+            return True
+        return False
+
 
 @lru_cache()
 def get_auth_service(
