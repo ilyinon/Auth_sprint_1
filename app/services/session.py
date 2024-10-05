@@ -3,48 +3,50 @@ from functools import lru_cache
 from typing import Optional
 from uuid import UUID
 
-from db.redis import get_redis
+from app.db.pg import get_session
+from app.services.database import BaseDb, PostgresqlEngine
+from models.session import Session
 from fastapi import Depends
-from redis.asyncio import Redis
 from schemas.session import SessionResponse
-from services.cache import BaseCache, RedisCacheEngine
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 
-class SessionService(BaseCache):
-    def __init__(self, cache: BaseCache):
-        super().__init__(cache)
+class SessionService:
+    def __init__(self, db: BaseDb):
+        self.db = db
 
-    async def delete_session(self, session_id: UUID) -> None:
-        await self.delete_by_key("session", session_id)
-
-    async def store_session(
-        self, session_id: UUID, session_data: SessionResponse, expiration: int
-    ) -> None:
-        await self.put_by_key(session_data, expiration, "session", session_id)
+    async def create_session(self, session_data: SessionResponse) -> Session:
+        new_session = Session(**session_data.dict())
+        return await self.db.create(new_session, Session)
 
     async def get_session(self, session_id: UUID) -> Optional[SessionResponse]:
-        session_data = await self.get_by_key("session", session_id, SessionResponse)
-        if session_data:
-            return SessionResponse(**session_data)
+        session = await self.db.get_by_id(session_id, Session)
+
+        if session:
+            return SessionResponse.from_orm(session)
         return None
-    
-    async def get_all_sessions(self) -> list[SessionResponse]:
-        session_keys = await self.get_all_keys("session")
-        sessions = []
 
-        for key in session_keys:
-            session_data = await self.get_by_key("session", key, SessionResponse)
-            if session_data:
-                sessions.append(SessionResponse(**session_data))
+    async def get_sessions_by_user(self, user_id: str) -> list[SessionResponse]:
+        sessions = await self.db.get_by_key("user_id", user_id, Session)
 
-        return sessions
+        return [SessionResponse.from_orm(session) for session in sessions]
+
+    async def update_session(
+        self, session_id: UUID, session_data: SessionResponse
+    ) -> Optional[Session]:
+        return await self.db.update(session_id, session_data.dict(), Session)
+
+    async def delete_session(self, session_id: UUID) -> None:
+        await self.db.delete(session_id, Session)
 
 
 @lru_cache()
-def get_session_service(redis: Redis = Depends(get_redis)) -> SessionService:
-    redis_cache_engine = RedisCacheEngine(redis)
-    cache_engine = BaseCache(redis_cache_engine)
+def get_session_service(
+    db_session: AsyncSession = Depends(get_session),
+) -> SessionService:
 
-    return SessionService(cache_engine)
+    db_engine = PostgresqlEngine(db_session)
+    base_db = BaseDb(db_engine)
+    return SessionService(base_db)
