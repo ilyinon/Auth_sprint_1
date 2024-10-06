@@ -4,8 +4,6 @@ from pydantic import EmailStr
 from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
-from models.role import UserRole
-from sqlalchemy.orm import relationship
 
 
 class User(IdMixin, TimestampMixin, Base):
@@ -17,7 +15,11 @@ class User(IdMixin, TimestampMixin, Base):
     full_name = Column(String)
 
     roles = relationship("UserRole", back_populates="user", lazy="selectin")
-    sessions = relationship("Session", back_populates="user", lazy="selectin", cascade="all, delete-orphan")
+    tokens = relationship("Token", back_populates="user", lazy="selectin")
+
+    sessions = relationship(
+        "Session", back_populates="user", lazy="selectin", cascade="all, delete-orphan"
+    )
 
     def __init__(
         self, email: EmailStr, password: str, username: str, full_name: str

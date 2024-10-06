@@ -4,8 +4,9 @@ from alembic import context
 from core.config import auth_settings
 from models.base import Base
 from models.role import Role, UserRole
-from models.user import User
 from models.session import Session
+from models.token import Token
+from models.user import User
 from sqlalchemy import engine_from_config, pool
 
 # this is the Alembic Config object, which provides
