@@ -32,7 +32,7 @@ user = {
     "username": fake.simple_profile()["username"],
 }
 
-admin_login_data = {"email": user["email"], "password": user["password"]}
+login_data = {"email": user["email"], "password": user["password"]}
 
 
 async def test_get_user_profile_wo_creds(session, db_truncate):
@@ -59,21 +59,46 @@ async def test_get_user_profile(session, db_truncate):
     assert response.status == http.HTTPStatus.OK
 
 
-# async def test_update_user_profile(session, db_truncate):
-#     async with session.post(url_signup, json=user) as response:
+async def test_update_user_profile(session, db_truncate):
+    async with session.post(url_signup, json=user) as response:
 
-#         body = await response.json()
+        body = await response.json()
 
-#     async with session.post(url_login, json=user) as response:
+    async with session.post(url_login, json=user) as response:
 
-#         body = await response.json()
-#         access_token = body["access_token"]
+        body = await response.json()
+        access_token = body["access_token"]
 
+    new_username = fake.simple_profile()["username"]
+    async with session.patch(
+        url_users,
+        json={"username": new_username},
+        headers={"Authorization": f"Bearer {access_token}"},
+    ) as response:
+        body = await response.json()
+    assert response.status == http.HTTPStatus.OK
 
-# async with session.patch(
-#     url_users,
-#     json={"username": session_id},
-#     headers={"Authorization": f"Bearer {access_token}"},
-# ) as response:
-#     body = await response.json()
-# assert response.status == http.HTTPStatus.OK
+    new_passord = fake.password()
+    async with session.patch(
+        url_users,
+        json={"password": new_passord},
+        headers={"Authorization": f"Bearer {access_token}"},
+    ) as response:
+        body = await response.json()
+    assert response.status == http.HTTPStatus.OK
+
+    async with session.get(
+        url_users, headers={"Authorization": f"Bearer {access_token}"}
+    ) as response:
+        body = await response.json()
+
+    assert body["username"] == new_username
+
+    login_data["password"] = new_passord
+    # async with session.post(url_login, json=login_data) as response:
+
+    #     body = await response.json()
+
+    #     assert response.status == http.HTTPStatus.OK
+    #     assert isinstance(body["access_token"], str)
+    #     assert isinstance(body["refresh_token"], str)
