@@ -27,6 +27,14 @@ class SessionService:
         if session:
             return SessionResponse.from_orm(session)
         return None
+    
+    async def get_session_by_user_and_agent(self, user_id: str, user_agent: str) -> Optional[SessionResponse]:
+        sessions = await self.db.get_by_key("user_id", user_id, Session)
+        
+        for session in sessions:
+            if session.user_agent == user_agent:
+                return SessionResponse.from_orm(session)
+        return None
 
     async def get_sessions_by_user(self, user_id: str) -> list[SessionResponse]:
         sessions = await self.db.get_by_key("user_id", user_id, Session)

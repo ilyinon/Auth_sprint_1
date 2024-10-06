@@ -9,9 +9,9 @@ from schemas.base import OrjsonBaseModel
 class SessionResponse(OrjsonBaseModel):
     id: UUID = Field(..., title="Session ID")
     user_id: str = Field(..., title="User ID")
-    login_time: datetime = Field(..., title="Login Time")
-    logout_time: Optional[datetime] = Field(None, title="Logout Time")
     user_agent: Optional[str] = Field(None, title="User Agent")
+    user_action: str = Field(..., title="User Action")
+    created_at: datetime = Field(..., title="Created At")
 
     class Config:
         orm_mode = True

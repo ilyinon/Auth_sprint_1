@@ -11,8 +11,7 @@ class Session(IdMixin, TimestampMixin, Base):
     user_id = Column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    login_time = Column(DateTime, nullable=False)
-    logout_time = Column(DateTime, nullable=True)
     user_agent = Column(String, nullable=True)
+    user_action = Column(String, nullable=False)  # login, logout, refresh
 
     user = relationship("User", back_populates="sessions", lazy="selectin")

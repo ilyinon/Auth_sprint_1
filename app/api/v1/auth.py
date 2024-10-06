@@ -1,5 +1,8 @@
 from typing import Annotated, Literal, Optional, Union
+from uuid import UUID
 
+from schemas.session import SessionResponse
+from services.session import SessionService, get_session_service
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.exceptions import HTTPException
@@ -61,30 +64,32 @@ async def login(
     request: Request,
     response: Response,
     auth_service: AuthService = Depends(get_auth_service),
+    session_service: SessionService = Depends(get_session_service),
 ) -> Union[TwoTokens, HTTPExceptionResponse, HTTPValidationError]:
     """
     Login a user to get a tokens pair.
     """
     logger.info(f"Requested /register with {form_data}")
-    if await auth_service.get_user_by_email(form_data.email):
+    user = await auth_service.get_user_by_email(form_data.email)
+    if user:
         logger.info(f"user agent is {request.headers.get('user-agent')}")
+
+        user_agent = request.headers.get("user-agent", "Unknown")
 
         tokens = await auth_service.login(form_data.email, form_data.password)
         if tokens:
+            session_data = SessionResponse(
+                user_id=user.id,
+                user_agent=user_agent,
+                user_action="login",
+            )
+            await session_service.create_session(session_data)
+            
             return tokens
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
     )
-
-    # if await user_service.get_user_by_email(form_data.email):
-    #     logger.info(f"user agent is {request.headers.get('user-agent')}")
-    #     tokens = await auth_service.login(form_data.email, form_data.password)
-    #     if tokens:
-    #         return tokens
-    # raise HTTPException(
-    #     status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
-    # )
 
 
 @router.post(
@@ -99,15 +104,32 @@ async def logout(
     request: Request,
     access_token: str = Depends(get_token),
     auth_service: AuthService = Depends(get_auth_service),
+    session_service: SessionService = Depends(get_session_service),
 ) -> Optional[HTTPExceptionResponse]:
     """
-    Log out the user from service.
+    Log out the user from service and update session with a logout action.
+    This only logs out if the user-agent matches the session's recorded user-agent.
     """
     if access_token:
-        user_agent = request.headers.get("user-agent")
-        if await auth_service.check_access(creds=access_token.credentials):
-            await auth_service.logout(access_token.credentials)
-            return status.HTTP_200_OK
+        user_agent = request.headers.get("user-agent", "Unknown")
+
+        user = await auth_service.check_access(creds=access_token.credentials)
+        if user:
+            user_uuid = UUID(user.get("user_id"))
+            session = await session_service.get_session_by_user_and_agent(user_id=user_uuid, user_agent=user_agent)
+
+            if session:
+                await session_service.update_session(
+                    session.id,
+                    SessionResponse(
+                        user_action="logout",
+                    ),
+                )
+
+                await auth_service.logout(access_token.credentials)
+                return status.HTTP_200_OK
+
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session not found for matching user-agent")
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
