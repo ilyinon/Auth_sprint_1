@@ -179,7 +179,6 @@ async def test_refresh_token(session):
 
 
 async def test_logout(session):
-
     """
     Login to get access and refresh tokens
     """
