@@ -4,6 +4,7 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 import jwt as jwt_auth
+from services.database import BaseDb, PostgresqlEngine
 from core.config import auth_settings
 from core.logger import logger
 from db.pg import get_session
@@ -17,12 +18,12 @@ from models.user import User
 from pydantic import EmailStr
 from redis.asyncio import Redis
 from schemas.auth import Payload, TwoTokens
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class AuthService:
-    def __init__(self, db: AsyncSession, redis: Redis):
+    def __init__(self, db: BaseDb, redis: Redis):
         self.db = db
         self.redis = redis
         self.auth_jwt = jwt_auth
@@ -51,8 +52,7 @@ class AuthService:
 
     async def get_user_by_email(self, email: EmailStr) -> Optional[User]:
         logger.info(f"Get user by email {email}")
-        result = await self.db.execute(select(User).where(User.email == email))
-        user = result.scalars().first()
+        user = await self.db.get_by_key("email", email, User)
         return user
 
     async def create_tokens(
@@ -181,25 +181,28 @@ class AuthService:
 
     async def get_opposite_token(self, user_id, jti):
         logger.info(f"To find opposite jti user_id: {user_id}, jti: {jti}")
-        refresh_jti = await self.db.execute(
-            select(Token.refresh_jti).where(
-                (Token.user_id == user_id) & (Token.access_jti == jti)
-            )
+
+        query = select(Token.refresh_jti).where(
+            and_(Token.user_id == user_id, Token.access_jti == jti)
         )
-        jti_to_add = refresh_jti.scalars().first()
+        result = await self.db.execute(query)
+        jti_to_add = result.scalars().first()
+
         if jti_to_add:
             logger.info(f"Got opposite jti: {jti_to_add}")
             return jti_to_add
+
         else:
-            access_jti = await self.db.execute(
-                select(Token.access_jti).where(
-                    (Token.user_id == user_id) & (Token.refresh_jti == jti)
-                )
+            query = select(Token.access_jti).where(
+                and_(Token.user_id == user_id, Token.refresh_jti == jti)
             )
-            jti_to_add = access_jti.scalars().first()
+            result = await self.db.execute(query)
+            jti_to_add = result.scalars().first()
+
             if jti_to_add:
                 logger.info(f"Got opposite jti: {jti_to_add}")
                 return jti_to_add
+
         return False
 
     async def refresh_tokens(self, refresh_token: str) -> Optional[TwoTokens]:
@@ -240,15 +243,17 @@ class AuthService:
             refresh_jti=refresh_jti,
             refresh_exp=refresh_exp,
         )
-        self.db.add(token)
-        await self.db.commit()
-        if await self.db.refresh(token):
-            return True
+
+        await self.db.create(token, Token)
+        return True
 
 
 @lru_cache()
 def get_auth_service(
-    db: AsyncSession = Depends(get_session),
+    db_session: AsyncSession = Depends(get_session),
     redis: Redis = Depends(get_redis),
 ) -> AuthService:
-    return AuthService(db, redis)
+
+    db_engine = PostgresqlEngine(db_session)
+    base_db = BaseDb(db_engine)
+    return AuthService(base_db, redis)
