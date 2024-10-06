@@ -104,3 +104,6 @@ class BaseDb:
         query = select(Object).where(getattr(Object, key) == value)
         result = await self.db_engine.execute(query)
         return result.scalars().first()
+
+    async def execute(self, query) -> Any:
+        return await self.db_engine.execute(query)
