@@ -2,9 +2,8 @@ from typing import List, Optional, Union
 from uuid import UUID
 
 from core.logger import logger
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
-from schemas.auth import TokenPayload
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
 from schemas.role import RoleBase, RoleResponse
 from services.auth import AuthService, get_auth_service
@@ -14,6 +13,10 @@ get_token = HTTPBearer(auto_error=False)
 
 
 router = APIRouter()
+
+roles_with_allowed = [
+    "admin",
+]
 
 
 @router.get(
@@ -36,12 +39,15 @@ async def list_roles(
         logger.info(f"Check access for {access_token.credentials}")
 
         if await auth_service.check_access_with_roles(
-            access_token.credentials, ["user"]
+            access_token.credentials, roles_with_allowed
         ):
 
             return await role_service.list_roles()
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @router.post(
@@ -69,13 +75,16 @@ async def create_role(
         logger.info(f"Check access for {access_token.credentials}")
 
         if await auth_service.check_access_with_roles(
-            access_token.credentials, ["user"]
+            access_token.credentials, roles_with_allowed
         ):
             new_role = await role_service.create_role(body)
             if new_role:
                 return new_role
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @router.delete(
@@ -103,13 +112,16 @@ async def delete_role(
         logger.info(f"Check access for {access_token.credentials}")
 
         if await auth_service.check_access_with_roles(
-            access_token.credentials, ["user"]
+            access_token.credentials, roles_with_allowed
         ):
             if await role_service.get_role_by_id(role_id):
                 role_service.delete_role(role_id)
                 return status.HTTP_200_OK
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @router.patch(
@@ -138,7 +150,7 @@ async def change_role(
         logger.info(f"Check access for {access_token.credentials}")
 
         if await auth_service.check_access_with_roles(
-            access_token.credentials, ["user"]
+            access_token.credentials, roles_with_allowed
         ):
             # try:
             if await role_service.get_role_by_id(role_id):
@@ -149,4 +161,7 @@ async def change_role(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
                 )
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)

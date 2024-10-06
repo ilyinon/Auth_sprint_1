@@ -18,20 +18,20 @@ endpoint_check_access = "check_access"
 endpoint_logout = "logout"
 endpoint_signup = "signup"
 
-url_signup = url_template.format(
-    service_url=test_settings.app_dsn, endpoint=endpoint_signup
-)
-url_login = url_template.format(
-    service_url=test_settings.app_dsn, endpoint=endpoint_login
-)
-url_logout = url_template.format(
-    service_url=test_settings.app_dsn, endpoint=endpoint_logout
-)
+url_signup = url_template.format(service_url=test_settings.app_dsn, endpoint="signup")
+url_login = url_template.format(service_url=test_settings.app_dsn, endpoint="login")
+url_logout = url_template.format(service_url=test_settings.app_dsn, endpoint="logout")
 url_refresh_token = url_template.format(
-    service_url=test_settings.app_dsn, endpoint=endpoint_refresh_token
+    service_url=test_settings.app_dsn, endpoint="refresh"
 )
 url_check_access = url_template.format(
-    service_url=test_settings.app_dsn, endpoint=endpoint_check_access
+    service_url=test_settings.app_dsn, endpoint="check_access"
+)
+url_check_access_admin = url_template.format(
+    service_url=test_settings.app_dsn, endpoint="check_access?allow_roles=admin"
+)
+url_check_access_user = url_template.format(
+    service_url=test_settings.app_dsn, endpoint="check_access?allow_roles=user"
 )
 
 user = {
@@ -116,7 +116,7 @@ async def test_login(session):
         assert isinstance(body["refresh_token"], str)
 
 
-async def test_check_access(session):
+async def test_check_access_wo_user_role(session):
 
     async with session.post(url_login, json=login_data) as response:
 
@@ -124,9 +124,22 @@ async def test_check_access(session):
         access_token = body["access_token"]
 
     async with session.get(
-        url_check_access, headers={"Authorization": f"Bearer {access_token}"}
-    ):
-        assert response.status == http.HTTPStatus.OK
+        url_check_access_user, headers={"Authorization": f"Bearer {access_token}"}
+    ) as response:
+        assert response.status == http.HTTPStatus.UNAUTHORIZED
+
+
+async def test_check_access_wo_admin_role(session):
+
+    async with session.post(url_login, json=login_data) as response:
+
+        body = await response.json()
+        access_token = body["access_token"]
+
+    async with session.get(
+        url_check_access_admin, headers={"Authorization": f"Bearer {access_token}"}
+    ) as response:
+        assert response.status == http.HTTPStatus.UNAUTHORIZED
 
 
 async def test_refresh_token(session):
