@@ -6,12 +6,21 @@ from pydantic import Field
 from schemas.base import OrjsonBaseModel
 
 
-class SessionResponse(OrjsonBaseModel):
-    id: UUID = Field(..., title="Id")
-    user_agent: str = Field(..., title="User Agent")
+class SessionCreate(OrjsonBaseModel):
+    user_id: UUID = Field(..., title="User ID")
+    user_agent: Optional[str] = Field(None, title="User Agent")
+    user_action: str = Field(..., title="User Action")
+
+
+class SessionUpdate(OrjsonBaseModel):
+    user_id: Optional[UUID] = Field(None, title="User ID")
+    user_agent: Optional[str] = Field(None, title="User Agent")
+    user_action: Optional[str] = Field(None, title="User Action")
+
+
+class SessionResponse(SessionCreate):
+    id: UUID = Field(..., title="Session ID")
     created_at: datetime = Field(..., title="Created At")
-    modified_at: Optional[datetime] = Field(None, title="Modified At")
-    session_exp: Optional[datetime] = Field(None, title="Session Exp")
 
     class Config:
         orm_mode = True

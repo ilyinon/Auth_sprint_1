@@ -4,9 +4,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer
 from pydantic import conint
-from schemas.auth import RefreshToken, TwoTokens
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
-from schemas.role import RoleBaseUUID
+from schemas.role import RoleBaseUUID  # noqa
 from schemas.session import SessionResponse
 from schemas.user import UserPatch, UserResponse
 from services.auth import AuthService, get_auth_service
@@ -16,6 +15,7 @@ from services.user import UserService, get_user_service
 get_token = HTTPBearer(auto_error=False)
 
 router = APIRouter()
+
 
 @router.delete(
     "/sessions/{session_id}",
@@ -52,7 +52,9 @@ async def delete_user_session(
     await session_service.delete_session(session_id)
     return {"message": "Session deleted successfully."}
 
+
 PageSizeType = Optional[conint(ge=1)]
+
 
 @router.get(
     "/sessions",
@@ -66,7 +68,6 @@ PageSizeType = Optional[conint(ge=1)]
 )
 async def get_user_sessions(
     request: Request,
-    active: Optional[bool] = None,
     page_size: PageSizeType = 50,
     page_number: PageSizeType = 1,
     access_token: str = Depends(get_token),
@@ -82,7 +83,8 @@ async def get_user_sessions(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
 
-    sessions = await session_service.get_all_sessions()  # Implement in service
+    user_uuid = UUID(user.get("user_id"))
+    sessions = await session_service.get_sessions_by_user(user_uuid)
     if not sessions:
         return []
 
@@ -91,6 +93,7 @@ async def get_user_sessions(
     end = start + page_size
 
     return sessions[start:end]
+
 
 @router.post(
     "/{user_id}/roles/{role_id}",
@@ -128,6 +131,7 @@ async def add_role_to_user(
 
     return {"message": msg}
 
+
 @router.delete(
     "/{user_id}/roles/{role_id}",
     summary="Remove role from user",
@@ -164,6 +168,7 @@ async def take_away_role_from_user(
 
     return {"message": msg}
 
+
 @router.get(
     "/",
     response_model=UserResponse,
@@ -197,6 +202,7 @@ async def get_user_info(
         )
 
     return user_info
+
 
 @router.patch(
     "/",

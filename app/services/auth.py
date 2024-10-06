@@ -12,7 +12,7 @@ from fastapi import Depends
 from models.role import Role, UserRole
 from models.user import User
 
-# from services.user imporst User
+# from services.user import User
 from pydantic import EmailStr
 from redis.asyncio import Redis
 from schemas.auth import Credentials, Payload, TwoTokens
@@ -28,8 +28,7 @@ class AuthService:
 
     async def login(self, email, hashed_password) -> Optional[TwoTokens]:
         logger.info(f"Start to login procedure with {email}")
-        result = await self.get_user_by_email(email)
-        user = result.scalars().first()
+        user = await self.get_user_by_email(email)
         logger.info(f"User has the following entry in db {user}")
         if user:
             if user.check_password(hashed_password):
@@ -51,7 +50,9 @@ class AuthService:
 
     async def get_user_by_email(self, email: EmailStr) -> Optional[User]:
         logger.info(f"Get user by email {email}")
-        return await self.db.execute(select(User).where(User.email == email))
+        result = await self.db.execute(select(User).where(User.email == email))
+        user = result.scalars().first()
+        return user 
 
     async def create_tokens(
         self, user: User, is_exist: bool = True, user_data={}
