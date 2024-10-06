@@ -39,7 +39,7 @@ admin_login_data = {"email": admin_user["email"], "password": admin_user["passwo
 async def test_get_all_roles_wo_creds(session, db_truncate):
     async with session.get(url_roles) as response:
 
-        assert response.status == http.HTTPStatus.UNAUTHORIZED
+        assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 async def test_get_all_roles_not_admin(session, db_truncate):

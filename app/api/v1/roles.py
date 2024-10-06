@@ -44,7 +44,10 @@ async def list_roles(
 
             return await role_service.list_roles()
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @router.post(
@@ -78,7 +81,10 @@ async def create_role(
             if new_role:
                 return new_role
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @router.delete(
@@ -112,7 +118,10 @@ async def delete_role(
                 role_service.delete_role(role_id)
                 return status.HTTP_200_OK
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 
 @router.patch(
@@ -152,4 +161,7 @@ async def change_role(
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
                 )
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)

@@ -28,28 +28,28 @@ url_sessions = sessions_url_template.format(
 )
 
 
-admin_user = {
+user = {
     "email": fake.email(),
     "password": fake.password(),
     "full_name": fake.name(),
     "username": fake.simple_profile()["username"],
 }
 
-admin_login_data = {"email": admin_user["email"], "password": admin_user["password"]}
+admin_login_data = {"email": user["email"], "password": user["password"]}
 
 
 async def test_get_sessions_wo_creds(session, db_truncate):
     async with session.get(url_sessions) as response:
 
-        assert response.status == http.HTTPStatus.UNAUTHORIZED
+        assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
 async def test_get_sessions(session, db_truncate):
-    async with session.post(url_signup, json=admin_user) as response:
+    async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
 
-    async with session.post(url_login, json=admin_user) as response:
+    async with session.post(url_login, json=user) as response:
 
         body = await response.json()
         access_token = body["access_token"]
@@ -64,11 +64,11 @@ async def test_get_sessions(session, db_truncate):
 
 
 async def test_delete_session_by_id(session, db_truncate):
-    async with session.post(url_signup, json=admin_user) as response:
+    async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
 
-    async with session.post(url_login, json=admin_user) as response:
+    async with session.post(url_login, json=user) as response:
 
         body = await response.json()
         access_token = body["access_token"]
