@@ -159,10 +159,10 @@ async def test_refresh_token(session):
     Verify if old access token doesn't work
     """
     # TODO: enable as JTI will be stored black list redis
-    # async with session.get(
-    #     url_check_access, headers={"Authorization": f"Bearer {access_token}"}
-    # ) as response:
-    #     assert response.status == http.HTTPStatus.UNAUTHORIZED
+    async with session.get(
+        url_check_access, headers={"Authorization": f"Bearer {access_token}"}
+    ) as response:
+        assert response.status == http.HTTPStatus.UNAUTHORIZED
 
 
 async def test_logout(session):
@@ -187,14 +187,14 @@ async def test_logout(session):
         assert response.status == http.HTTPStatus.OK
 
     """
-    Refresh has to doesn't work
+    Refresh token has to doesn't work
     """
     # # TODO: enable as JTI will be stored black list redis
-    # async with session.post(
-    #     url_refresh_token, json={"refresh_token": refresh_token}
-    # ) as response:
-    #     await response.json()
-    #     assert response.status == http.HTTPStatus.UNAUTHORIZED
+    async with session.post(
+        url_refresh_token, json={"refresh_token": refresh_token}
+    ) as response:
+        await response.json()
+        assert response.status == http.HTTPStatus.UNAUTHORIZED
 
     """
     Check access has to doesn't work

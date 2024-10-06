@@ -10,13 +10,14 @@ from db.pg import get_session
 from db.redis import add_jti_to_blocklist, get_redis, token_in_blocklist
 from fastapi import Depends
 from models.role import Role, UserRole
+from models.token import Token
 from models.user import User
 
 # from services.user import User
 from pydantic import EmailStr
 from redis.asyncio import Redis
-from schemas.auth import Credentials, Payload, TwoTokens
-from sqlalchemy import select, update
+from schemas.auth import Payload, TwoTokens
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -52,7 +53,7 @@ class AuthService:
         logger.info(f"Get user by email {email}")
         result = await self.db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
-        return user 
+        return user
 
     async def create_tokens(
         self, user: User, is_exist: bool = True, user_data={}
@@ -63,6 +64,10 @@ class AuthService:
 
         refresh_token = await self.create_token(user, user_data, True)
         logger.info(f"refresh token is {refresh_token}")
+
+        if await self.save_token_jti_to_db(user, access_token, refresh_token):
+            logger.info("Tokens jti and exp were save to tokens table in db")
+
         return TwoTokens(access_token=access_token, refresh_token=refresh_token)
 
     async def create_token(
@@ -72,7 +77,7 @@ class AuthService:
         refresh=False,
     ):
         logger.info("Start to create token")
-        logger.info(f"User data is user_data")
+        logger.info("User data is user_data")
         expires_time = datetime.now(tz=timezone.utc) + timedelta(
             seconds=auth_settings.jwt_access_token_expires_in_seconds
         )
@@ -130,7 +135,7 @@ class AuthService:
             logger.info("Start to get payload from decode_jwt")
             payload = await self.decode_jwt(jwtoken)
             logger.info(f"Get payload from decode_jwt {payload}")
-        except:
+        except:  # noqa
             return None
 
         if await token_in_blocklist(payload["jti"]):
@@ -158,28 +163,59 @@ class AuthService:
         decoded_token = await self.decode_jwt(access_token)
         if not decoded_token:
             return False
-        logger.info(f"decoded token for logout is {decoded_token}")
+        logger.info("End session token")
+        await self.end_session(decoded_token["jti"], decoded_token["user"]["user_id"])
 
-        await self.end_session(decoded_token["jti"])
-
-    async def end_session(self, jti):
+    async def end_session(self, jti: str, user_id: str):
         logger.info(f"End session for {jti}")
 
-        await self.revoke_access_token(jti)
+        opposite_jti = await self.get_opposite_token(user_id, jti)
 
-    async def revoke_access_token(self, jti: UUID):
-        await add_jti_to_blocklist(jti)
+        logger.info(f"opposite jti is {opposite_jti}")
+        if opposite_jti:
+            await self.revoke_token(jti)
+            await self.revoke_token(opposite_jti)
+
+    async def revoke_token(self, jti: UUID):
+        await add_jti_to_blocklist(str(jti))
+
+    async def get_opposite_token(self, user_id, jti):
+        logger.info(f"To find opposite jti user_id: {user_id}, jti: {jti}")
+        refresh_jti = await self.db.execute(
+            select(Token.refresh_jti).where(
+                (Token.user_id == user_id) & (Token.access_jti == jti)
+            )
+        )
+        jti_to_add = refresh_jti.scalars().first()
+        if jti_to_add:
+            logger.info(f"Got opposite jti: {jti_to_add}")
+            return jti_to_add
+        else:
+            access_jti = await self.db.execute(
+                select(Token.access_jti).where(
+                    (Token.user_id == user_id) & (Token.refresh_jti == jti)
+                )
+            )
+            jti_to_add = access_jti.scalars().first()
+            if jti_to_add:
+                logger.info(f"Got opposite jti: {jti_to_add}")
+                return jti_to_add
+        return False
 
     async def refresh_tokens(self, refresh_token: str) -> Optional[TwoTokens]:
         logger.info("From auth service start to refresh token")
         decoded_token = await self.decode_jwt(refresh_token)
-        logger.info(f"decoded refresh token: {decoded_token}")
-        await self.revoke_access_token(decoded_token["jti"])
-        user = await self.get_user_by_email(decoded_token["user"]["email"])
-        logger.info(f"get user to refresh: {user}")
-        if user:
-            if decoded_token["refresh"]:
-                return await self.create_tokens(user, True, decoded_token["user"])
+        if decoded_token:
+            logger.info(f"decoded refresh token: {decoded_token}")
+            logger.info("End session token")
+            await self.end_session(
+                decoded_token["jti"], decoded_token["user"]["user_id"]
+            )
+            user = await self.get_user_by_email(decoded_token["user"]["email"])
+            logger.info(f"get user to refresh: {user}")
+            if user:
+                if decoded_token["refresh"]:
+                    return await self.create_tokens(user, True, decoded_token["user"])
         return False
 
     async def is_token_in_redis(self, refresh_token: str) -> bool:
@@ -187,6 +223,27 @@ class AuthService:
         if decoded_token and await self.redis.exists(decoded_token["jti"]):
             return True
         return False
+
+    async def save_token_jti_to_db(
+        self, user: User, access_token: str, refresh_token: str
+    ) -> bool:
+        decoded_access = await self.decode_jwt(access_token)
+        decoded_refresh = await self.decode_jwt(refresh_token)
+        access_jti = decoded_access["jti"]
+        access_exp = decoded_access["exp"]
+        refresh_jti = decoded_refresh["jti"]
+        refresh_exp = decoded_refresh["exp"]
+        token = Token(
+            user_id=user.id,
+            access_jti=access_jti,
+            access_exp=access_exp,
+            refresh_jti=refresh_jti,
+            refresh_exp=refresh_exp,
+        )
+        self.db.add(token)
+        await self.db.commit()
+        if await self.db.refresh(token):
+            return True
 
 
 @lru_cache()

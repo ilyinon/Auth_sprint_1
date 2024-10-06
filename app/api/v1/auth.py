@@ -1,19 +1,16 @@
 from typing import Annotated, Literal, Optional, Union
 from uuid import UUID
 
-from schemas.session import SessionCreate, SessionResponse, SessionUpdate
-from services.session import SessionService, get_session_service
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Request, Response, status
 from fastapi.exceptions import HTTPException
-from fastapi.security import HTTPBearer  # noqa: F401
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext
-from schemas.auth import Credentials, TwoTokens, UserLoginModel
+from fastapi.security import HTTPBearer
+from schemas.auth import TwoTokens, UserLoginModel
 from schemas.base import HTTPExceptionResponse, HTTPValidationError
+from schemas.session import SessionCreate, SessionUpdate
 from schemas.user import UserCreate, UserResponse
 from services.auth import AuthService, get_auth_service
+from services.session import SessionService, get_session_service
 from services.user import UserService, get_user_service
 
 get_token = HTTPBearer(auto_error=False)
@@ -185,29 +182,31 @@ async def refresh_tokens(
         decoded_token = await auth_service.decode_jwt(refresh_token)
 
         if decoded_token and decoded_token.get("refresh"):
-            user = await auth_service.get_user_by_email(decoded_token["user"]["email"])
-            logger.info(f"get user to refresh: {user}")
-
-            if user:
-                tokens = await auth_service.refresh_tokens(refresh_token)
-
-                user_uuid = UUID(decoded_token["user"]["user_id"])
-                user_agent = request.headers.get("user-agent", "Unknown")
-
-                session = await session_service.get_session_by_user_and_agent(
-                    user_id=user_uuid, user_agent=user_agent
+            if await auth_service.check_access(refresh_token):
+                user = await auth_service.get_user_by_email(
+                    decoded_token["user"]["email"]
                 )
-                if session:
-                    await session_service.update_session(
-                        session.id,
-                        SessionUpdate(
-                            user_id=user_uuid,
-                            user_agent=user_agent,
-                            user_action="refresh",
-                        ),
-                    )
+                logger.info(f"get user to refresh: {user}")
 
-                return tokens
+                if user:
+                    tokens = await auth_service.refresh_tokens(refresh_token)
+
+                    user_uuid = UUID(decoded_token["user"]["user_id"])
+                    user_agent = request.headers.get("user-agent", "Unknown")
+                    session = await session_service.get_session_by_user_and_agent(
+                        user_id=user_uuid, user_agent=user_agent
+                    )
+                    if session:
+                        await session_service.update_session(
+                            session.id,
+                            SessionUpdate(
+                                user_id=user_uuid,
+                                user_agent=user_agent,
+                                user_action="refresh",
+                            ),
+                        )
+
+                    return tokens
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
