@@ -10,6 +10,7 @@ from db.pg import get_session
 from db.redis import add_jti_to_blocklist, get_redis, token_in_blocklist
 from fastapi import Depends
 from models.role import Role, UserRole
+from models.token import Token
 from models.user import User
 
 # from services.user import User
@@ -52,7 +53,7 @@ class AuthService:
         logger.info(f"Get user by email {email}")
         result = await self.db.execute(select(User).where(User.email == email))
         user = result.scalars().first()
-        return user 
+        return user
 
     async def create_tokens(
         self, user: User, is_exist: bool = True, user_data={}

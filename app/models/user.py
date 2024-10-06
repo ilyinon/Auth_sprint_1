@@ -15,10 +15,12 @@ class User(IdMixin, TimestampMixin, Base):
     full_name = Column(String)
 
     roles = relationship("UserRole", back_populates="user", lazy="selectin")
-    tokens = relationship("Token", back_populates="user", lazy="selectin")
 
     sessions = relationship(
         "Session", back_populates="user", lazy="selectin", cascade="all, delete-orphan"
+    )
+    tokens = relationship(
+        "Token", back_populates="user", lazy="selectin", cascade="all, delete-orphan"
     )
 
     def __init__(
