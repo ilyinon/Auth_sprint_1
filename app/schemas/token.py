@@ -8,7 +8,8 @@ class TokenResponse(OrjsonBaseModel):
     user_id: UUID = Field(..., title="User ID")
     access_jti: UUID = Field(..., title="Access token JTI")
     refresh_jti: UUID = Field(..., title="Refresh token JTI")
-    exp: str = Field(..., title="Token expiration")
+    access_exp: int = Field(..., title="Access Token expiration")
+    refresh_exp: int = Field(..., title="Refresh Token expiration")
 
     class Config:
         orm_mode = True

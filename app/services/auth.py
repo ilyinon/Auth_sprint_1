@@ -64,6 +64,10 @@ class AuthService:
 
         refresh_token = await self.create_token(user, user_data, True)
         logger.info(f"refresh token is {refresh_token}")
+
+        if await self.save_token_jti_to_db(user, access_token, refresh_token):
+            logger.info("Tokens jti and exp were save to tokens table in db")
+
         return TwoTokens(access_token=access_token, refresh_token=refresh_token)
 
     async def create_token(
@@ -188,6 +192,27 @@ class AuthService:
         if decoded_token and await self.redis.exists(decoded_token["jti"]):
             return True
         return False
+
+    async def save_token_jti_to_db(
+        self, user: User, access_token: str, refresh_token: str
+    ) -> bool:
+        decoded_access = await self.decode_jwt(access_token)
+        decoded_refresh = await self.decode_jwt(refresh_token)
+        access_jti = decoded_access["jti"]
+        access_exp = decoded_access["exp"]
+        refresh_jti = decoded_refresh["jti"]
+        refresh_exp = decoded_refresh["exp"]
+        token = Token(
+            user_id=user.id,
+            access_jti=access_jti,
+            access_exp=access_exp,
+            refresh_jti=refresh_jti,
+            refresh_exp=refresh_exp,
+        )
+        self.db.add(token)
+        await self.db.commit()
+        if await self.db.refresh(token):
+            return True
 
 
 @lru_cache()
