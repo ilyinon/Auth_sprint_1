@@ -234,10 +234,14 @@ async def check_access(
     if access_token:
         logger.info(f"Check access for {access_token.credentials}")
 
-        if await auth_service.check_access_with_roles(
-            creds=access_token.credentials, allow_roles=allow_roles
-        ):
-            return status.HTTP_200_OK
+        if allow_roles:
+            if await auth_service.check_access_with_roles(
+                creds=access_token.credentials, allow_roles=allow_roles
+            ):
+                return status.HTTP_200_OK
+        if not allow_roles:
+            if await auth_service.check_access(creds=access_token.credentials):
+                return status.HTTP_200_OK
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"

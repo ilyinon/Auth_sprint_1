@@ -37,20 +37,17 @@ async def delete_user_session(
     """
     Delete user session by session ID.
     """
-    user = await auth_service.check_access(creds=access_token.credentials)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
-        )
-
-    session = await session_service.get_session(session_id)
-    if not session:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-        )
-
-    await session_service.delete_session(session_id)
-    return {"message": "Session deleted successfully."}
+    if access_token:
+        user = await auth_service.check_access(creds=access_token.credentials)
+        if user:
+            session = await session_service.get_session(session_id)
+            if session:
+                await session_service.delete_session(session_id)
+                return {"message": "Session deleted successfully."}
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
+            )
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 PageSizeType = Optional[conint(ge=1)]
@@ -77,22 +74,20 @@ async def get_user_sessions(
     """
     Retrieve user's session history with optional pagination and activity filter.
     """
-    user = await auth_service.check_access(creds=access_token.credentials)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
-        )
+    if access_token:
+        user = await auth_service.check_access(creds=access_token.credentials)
+        if user:
+            user_uuid = UUID(user.get("user_id"))
+            sessions = await session_service.get_sessions_by_user(user_uuid)
+            if not sessions:
+                return []
 
-    user_uuid = UUID(user.get("user_id"))
-    sessions = await session_service.get_sessions_by_user(user_uuid)
-    if not sessions:
-        return []
+            # Optional pagination logic
+            start = (page_number - 1) * page_size
+            end = start + page_size
 
-    # Optional pagination logic
-    start = (page_number - 1) * page_size
-    end = start + page_size
-
-    return sessions[start:end]
+            return sessions[start:end]
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
 @router.post(
