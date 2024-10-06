@@ -34,6 +34,8 @@ class AuthSettings(BaseSettings):
     jwt_access_token_expires_in_seconds: int = 1800
     jwt_refresh_token_expires_in_days: int = 30
 
+    pg_echo: bool = False
+
     @property
     def redis_dsn(self):
         return f"redis://{self.redis_host}:{self.redis_port}"

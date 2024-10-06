@@ -5,8 +5,6 @@ services:
   db:
     image: postgres:16.3-alpine
     restart: unless-stopped
-    ports:
-      - "5432:5432"
     environment:
       - POSTGRES_USER=${PG_USER}
       - POSTGRES_PASSWORD=${PG_PASSWORD}

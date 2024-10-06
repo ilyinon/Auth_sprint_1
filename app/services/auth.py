@@ -4,7 +4,6 @@ from typing import Optional
 from uuid import UUID, uuid4
 
 import jwt as jwt_auth
-from services.database import BaseDb, PostgresqlEngine
 from core.config import auth_settings
 from core.logger import logger
 from db.pg import get_session
@@ -18,6 +17,7 @@ from models.user import User
 from pydantic import EmailStr
 from redis.asyncio import Redis
 from schemas.auth import Payload, TwoTokens
+from services.database import BaseDb, PostgresqlEngine
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 

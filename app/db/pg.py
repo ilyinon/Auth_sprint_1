@@ -6,7 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker  # isort: sk
 
 Base = declarative_base()
 
-engine = create_async_engine(auth_settings.database_dsn, echo=True, future=True)
+engine = create_async_engine(
+    auth_settings.database_dsn, echo=auth_settings.pg_echo, future=True
+)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

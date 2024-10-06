@@ -3,12 +3,10 @@ from functools import lru_cache
 from typing import Optional
 from uuid import UUID
 
-from models.role import Role, UserRole
-from schemas.role import RoleBaseUUID
-from schemas.session import SessionResponse
 from db.pg import get_session
 from fastapi import Depends
 from fastapi.encoders import jsonable_encoder
+from models.role import Role, UserRole
 from models.user import User
 from pydantic import EmailStr
 from schemas.user import UserCreate, UserPatch, UserResponse, UserResponseLogin
@@ -89,7 +87,7 @@ class UserService:
         if not role:
             raise ValueError("Role not found")
 
-        user_role = await self.db.get_by_key('user_id', user.id, UserRole)
+        user_role = await self.db.get_by_key("user_id", user.id, UserRole)
         if not user_role or user_role.role_id != role.id:
             raise ValueError("UserRole association not found")
 
