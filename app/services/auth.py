@@ -16,8 +16,8 @@ from models.user import User
 # from services.user import User
 from pydantic import EmailStr
 from redis.asyncio import Redis
-from schemas.auth import Credentials, Payload, TwoTokens
-from sqlalchemy import select, update
+from schemas.auth import Payload, TwoTokens
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -77,7 +77,7 @@ class AuthService:
         refresh=False,
     ):
         logger.info("Start to create token")
-        logger.info(f"User data is user_data")
+        logger.info("User data is user_data")
         expires_time = datetime.now(tz=timezone.utc) + timedelta(
             seconds=auth_settings.jwt_access_token_expires_in_seconds
         )
@@ -135,7 +135,7 @@ class AuthService:
             logger.info("Start to get payload from decode_jwt")
             payload = await self.decode_jwt(jwtoken)
             logger.info(f"Get payload from decode_jwt {payload}")
-        except:
+        except:  # noqa
             return None
 
         if await token_in_blocklist(payload["jti"]):
@@ -163,28 +163,59 @@ class AuthService:
         decoded_token = await self.decode_jwt(access_token)
         if not decoded_token:
             return False
-        logger.info(f"decoded token for logout is {decoded_token}")
+        logger.info("End session token")
+        await self.end_session(decoded_token["jti"], decoded_token["user"]["user_id"])
 
-        await self.end_session(decoded_token["jti"])
-
-    async def end_session(self, jti):
+    async def end_session(self, jti: str, user_id: str):
         logger.info(f"End session for {jti}")
 
-        await self.revoke_access_token(jti)
+        opposite_jti = await self.get_opposite_token(user_id, jti)
 
-    async def revoke_access_token(self, jti: UUID):
-        await add_jti_to_blocklist(jti)
+        logger.info(f"opposite jti is {opposite_jti}")
+        if opposite_jti:
+            await self.revoke_token(jti)
+            await self.revoke_token(opposite_jti)
+
+    async def revoke_token(self, jti: UUID):
+        await add_jti_to_blocklist(str(jti))
+
+    async def get_opposite_token(self, user_id, jti):
+        logger.info(f"To find opposite jti user_id: {user_id}, jti: {jti}")
+        refresh_jti = await self.db.execute(
+            select(Token.refresh_jti).where(
+                (Token.user_id == user_id) & (Token.access_jti == jti)
+            )
+        )
+        jti_to_add = refresh_jti.scalars().first()
+        if jti_to_add:
+            logger.info(f"Got opposite jti: {jti_to_add}")
+            return jti_to_add
+        else:
+            access_jti = await self.db.execute(
+                select(Token.access_jti).where(
+                    (Token.user_id == user_id) & (Token.refresh_jti == jti)
+                )
+            )
+            jti_to_add = access_jti.scalars().first()
+            if jti_to_add:
+                logger.info(f"Got opposite jti: {jti_to_add}")
+                return jti_to_add
+        return False
 
     async def refresh_tokens(self, refresh_token: str) -> Optional[TwoTokens]:
         logger.info("From auth service start to refresh token")
         decoded_token = await self.decode_jwt(refresh_token)
-        logger.info(f"decoded refresh token: {decoded_token}")
-        await self.revoke_access_token(decoded_token["jti"])
-        user = await self.get_user_by_email(decoded_token["user"]["email"])
-        logger.info(f"get user to refresh: {user}")
-        if user:
-            if decoded_token["refresh"]:
-                return await self.create_tokens(user, True, decoded_token["user"])
+        if decoded_token:
+            logger.info(f"decoded refresh token: {decoded_token}")
+            logger.info("End session token")
+            await self.end_session(
+                decoded_token["jti"], decoded_token["user"]["user_id"]
+            )
+            user = await self.get_user_by_email(decoded_token["user"]["email"])
+            logger.info(f"get user to refresh: {user}")
+            if user:
+                if decoded_token["refresh"]:
+                    return await self.create_tokens(user, True, decoded_token["user"])
         return False
 
     async def is_token_in_redis(self, refresh_token: str) -> bool:
