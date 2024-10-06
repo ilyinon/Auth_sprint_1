@@ -200,8 +200,8 @@ async def test_logout(session):
     Check access has to doesn't work
     """
     # TODO: enable as JTI will be stored black list redis
-    # async with session.get(
-    #     url_check_access, headers={"Authorization": f"Bearer {access_token}"}
-    # ) as response:
-    #     await response.json()
-    #     assert response.status == http.HTTPStatus.UNAUTHORIZED
+    async with session.get(
+        url_check_access, headers={"Authorization": f"Bearer {access_token}"}
+    ) as response:
+        await response.json()
+        assert response.status == http.HTTPStatus.UNAUTHORIZED
