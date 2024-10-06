@@ -1,7 +1,7 @@
 from typing import Annotated, Literal, Optional, Union
 from uuid import UUID
 
-from schemas.session import SessionResponse
+from schemas.session import SessionCreate, SessionResponse, SessionUpdate
 from services.session import SessionService, get_session_service
 from core.logger import logger
 from fastapi import APIRouter, Body, Depends, Request, Response, status
@@ -78,7 +78,7 @@ async def login(
 
         tokens = await auth_service.login(form_data.email, form_data.password)
         if tokens:
-            session_data = SessionResponse(
+            session_data = SessionCreate(
                 user_id=user.id,
                 user_agent=user_agent,
                 user_action="login",
@@ -121,7 +121,8 @@ async def logout(
             if session:
                 await session_service.update_session(
                     session.id,
-                    SessionResponse(
+                    SessionUpdate(
+                        user_id=user_uuid,
                         user_action="logout",
                     ),
                 )

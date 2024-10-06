@@ -7,7 +7,7 @@ from db.pg import get_session
 from services.database import BaseDb, PostgresqlEngine
 from models.session import Session
 from fastapi import Depends
-from schemas.session import SessionResponse
+from schemas.session import SessionResponse, SessionCreate, SessionUpdate
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ class SessionService:
     def __init__(self, db: BaseDb):
         self.db = db
 
-    async def create_session(self, session_data: SessionResponse) -> Session:
+    async def create_session(self, session_data: SessionCreate) -> Session:
         new_session = Session(**session_data.dict())
         return await self.db.create(new_session, Session)
 
@@ -27,10 +27,15 @@ class SessionService:
         if session:
             return SessionResponse.from_orm(session)
         return None
-    
-    async def get_session_by_user_and_agent(self, user_id: str, user_agent: str) -> Optional[SessionResponse]:
+
+    async def get_session_by_user_and_agent(
+        self, user_id: str, user_agent: str
+    ) -> Optional[SessionResponse]:
         sessions = await self.db.get_by_key("user_id", user_id, Session)
-        
+
+        if isinstance(sessions, Session):
+            sessions = [sessions]
+
         for session in sessions:
             if session.user_agent == user_agent:
                 return SessionResponse.from_orm(session)
@@ -39,10 +44,15 @@ class SessionService:
     async def get_sessions_by_user(self, user_id: str) -> list[SessionResponse]:
         sessions = await self.db.get_by_key("user_id", user_id, Session)
 
-        return [SessionResponse.from_orm(session) for session in sessions]
+        if sessions:
+            if isinstance(sessions, Session):
+                sessions = [sessions]
+                
+            return [SessionResponse.from_orm(session) for session in sessions]
+        return None
 
     async def update_session(
-        self, session_id: UUID, session_data: SessionResponse
+        self, session_id: UUID, session_data: SessionUpdate
     ) -> Optional[Session]:
         return await self.db.update(session_id, session_data.dict(), Session)
 
