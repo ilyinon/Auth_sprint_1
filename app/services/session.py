@@ -4,10 +4,10 @@ from typing import Optional
 from uuid import UUID
 
 from db.pg import get_session
-from services.database import BaseDb, PostgresqlEngine
-from models.session import Session
 from fastapi import Depends
-from schemas.session import SessionResponse, SessionCreate, SessionUpdate
+from models.session import Session
+from schemas.session import SessionCreate, SessionResponse, SessionUpdate
+from services.database import BaseDb, PostgresqlEngine
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
@@ -36,9 +36,9 @@ class SessionService:
         if isinstance(sessions, Session):
             sessions = [sessions]
 
-        for session in sessions:
-            if session.user_agent == user_agent:
-                return SessionResponse.from_orm(session)
+            for session in sessions:
+                if session.user_agent == user_agent:
+                    return SessionResponse.from_orm(session)
         return None
 
     async def get_sessions_by_user(self, user_id: str) -> list[SessionResponse]:
@@ -47,7 +47,7 @@ class SessionService:
         if sessions:
             if isinstance(sessions, Session):
                 sessions = [sessions]
-                
+
             return [SessionResponse.from_orm(session) for session in sessions]
         return None
 
