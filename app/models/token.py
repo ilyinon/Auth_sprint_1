@@ -3,7 +3,7 @@ from uuid import uuid4
 
 from models.base import Base
 from models.mixin import IdMixin
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 

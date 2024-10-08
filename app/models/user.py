@@ -9,10 +9,10 @@ from werkzeug.security import check_password_hash, generate_password_hash
 class User(IdMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
-    email = Column(String, unique=True, nullable=False)
-    username = Column(String, unique=True)
-    hashed_password = Column(String, nullable=False)
-    full_name = Column(String)
+    email = Column(String(255), unique=True, nullable=False)
+    username = Column(String(255), unique=True)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255))
 
     roles = relationship("UserRole", back_populates="user", lazy="selectin")
 
