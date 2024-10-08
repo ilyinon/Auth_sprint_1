@@ -35,14 +35,19 @@ async def signup(
     Register a new user.
     """
     logger.info(f"Requested /signup with {user_create}")
-    if not await user_service.get_user_by_email(user_create.email):
-        if not await user_service.get_user_by_username(user_create.username):
-            created_new_user = await user_service.create_user(user_create)
-            return created_new_user
-    raise HTTPException(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        detail="The email or username is already in use",
-    )
+    if await user_service.get_user_by_email(user_create.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The email is already in use",
+        )
+    if await user_service.get_user_by_username(user_create.username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The username is already in use",
+        )
+
+    created_new_user = await user_service.create_user(user_create)
+    return created_new_user
 
 
 @router.post(
@@ -67,43 +72,47 @@ async def login(
     """
     logger.info(f"Requested /register with {form_data}")
     user = await auth_service.get_user_by_email(form_data.email)
-    if user:
-        logger.info(f"user agent is {request.headers.get('user-agent')}")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
 
-        user_agent = request.headers.get("user-agent", "Unknown")
+    logger.info(f"user agent is {request.headers.get('user-agent')}")
+    user_agent = request.headers.get("user-agent", "Unknown")
 
-        tokens = await auth_service.login(form_data.email, form_data.password)
-        if tokens:
-            session = await session_service.get_session_by_user_and_agent(
-                user_id=user.id, user_agent=user_agent
-            )
+    tokens = await auth_service.login(form_data.email, form_data.password)
 
-            if session:
-                # Update existing session with login action
-                logger.info(
-                    f"Updating existing session for user {user.id} and agent {user_agent}"
-                )
-                await session_service.update_session(
-                    session_id=session.id,
-                    session_data=SessionUpdate(
-                        user_id=user.id,
-                        user_agent=user_agent,
-                        user_action="login",
-                    ),
-                )
-            else:
-                session_data = SessionCreate(
-                    user_id=user.id,
-                    user_agent=user_agent,
-                    user_action="login",
-                )
-                await session_service.create_session(session_data)
+    if not tokens:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+        )
 
-            return tokens
-
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Bad username or password"
+    session = await session_service.get_session_by_user_and_agent(
+        user_id=user.id, user_agent=user_agent
     )
+
+    if session:
+        # Update existing session with login action
+        logger.info(
+            f"Updating existing session for user {user.id} and agent {user_agent}"
+        )
+        await session_service.update_session(
+            session_id=session.id,
+            session_data=SessionUpdate(
+                user_id=user.id,
+                user_agent=user_agent,
+                user_action="login",
+            ),
+        )
+    else:
+        session_data = SessionCreate(
+            user_id=user.id,
+            user_agent=user_agent,
+            user_action="login",
+        )
+        await session_service.create_session(session_data)
+
+    return tokens
 
 
 @router.post(
@@ -124,35 +133,37 @@ async def logout(
     Log out the user from service and update session with a logout action.
     This only logs out if the user-agent matches the session's recorded user-agent.
     """
-    if access_token:
-        user_agent = request.headers.get("user-agent", "Unknown")
+    if not access_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
 
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            user_uuid = UUID(user.get("user_id"))
-            session = await session_service.get_session_by_user_and_agent(
-                user_id=user_uuid, user_agent=user_agent
-            )
+    user_agent = request.headers.get("user-agent", "Unknown")
+    user = await auth_service.check_access(creds=access_token.credentials)
 
-            if session:
-                await session_service.update_session(
-                    session.id,
-                    SessionUpdate(
-                        user_id=user_uuid,
-                        user_agent=user_agent,
-                        user_action="logout",
-                    ),
-                )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session not found for matching user-agent",
+        )
 
-                await auth_service.logout(access_token.credentials)
-                return status.HTTP_200_OK
+    user_uuid = UUID(user.get("user_id"))
+    session = await session_service.get_session_by_user_and_agent(
+        user_id=user_uuid, user_agent=user_agent
+    )
 
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Session not found for matching user-agent",
-            )
+    if session:
+        await session_service.update_session(
+            session.id,
+            SessionUpdate(
+                user_id=user_uuid,
+                user_agent=user_agent,
+                user_action="logout",
+            ),
+        )
 
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+        await auth_service.logout(access_token.credentials)
+        return status.HTTP_200_OK
 
 
 @router.post(
@@ -176,39 +187,38 @@ async def refresh_tokens(
     """
     logger.info(f"Refresh token with token {refresh_token}")
 
-    if refresh_token:
-        logger.info(f"token to refresh {refresh_token}")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
+        )
+    logger.info(f"token to refresh {refresh_token}")
 
-        decoded_token = await auth_service.decode_jwt(refresh_token)
+    decoded_token = await auth_service.decode_jwt(refresh_token)
 
-        if decoded_token and decoded_token.get("refresh"):
-            if await auth_service.check_access(refresh_token):
-                user = await auth_service.get_user_by_email(
-                    decoded_token["user"]["email"]
+    if decoded_token and decoded_token.get("refresh"):
+        if await auth_service.check_access(refresh_token):
+            user = await auth_service.get_user_by_email(decoded_token["user"]["email"])
+            logger.info(f"get user to refresh: {user}")
+
+            if user:
+                tokens = await auth_service.refresh_tokens(refresh_token)
+
+                user_uuid = UUID(decoded_token["user"]["user_id"])
+                user_agent = request.headers.get("user-agent", "Unknown")
+                session = await session_service.get_session_by_user_and_agent(
+                    user_id=user_uuid, user_agent=user_agent
                 )
-                logger.info(f"get user to refresh: {user}")
-
-                if user:
-                    tokens = await auth_service.refresh_tokens(refresh_token)
-
-                    user_uuid = UUID(decoded_token["user"]["user_id"])
-                    user_agent = request.headers.get("user-agent", "Unknown")
-                    session = await session_service.get_session_by_user_and_agent(
-                        user_id=user_uuid, user_agent=user_agent
+                if session:
+                    await session_service.update_session(
+                        session.id,
+                        SessionUpdate(
+                            user_id=user_uuid,
+                            user_agent=user_agent,
+                            user_action="refresh",
+                        ),
                     )
-                    if session:
-                        await session_service.update_session(
-                            session.id,
-                            SessionUpdate(
-                                user_id=user_uuid,
-                                user_agent=user_agent,
-                                user_action="refresh",
-                            ),
-                        )
 
-                    return tokens
-
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
+                return tokens
 
 
 @router.get(
