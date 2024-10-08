@@ -8,7 +8,7 @@ from sqlalchemy.orm import relationship
 class Role(IdMixin, TimestampMixin, Base):
     __tablename__ = "roles"
 
-    name = Column(String, unique=True, nullable=False)
+    name = Column(String(255), unique=True, nullable=False)
     users = relationship("UserRole", back_populates="role", lazy="selectin")
 
 
