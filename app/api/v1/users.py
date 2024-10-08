@@ -37,20 +37,24 @@ async def delete_user_session(
     """
     Delete user session by session ID.
     """
-    if access_token:
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            session = await session_service.get_session(session_id)
-            if session:
-                await session_service.delete_session(session_id)
-                return {"message": "Session deleted successfully."}
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Session not found"
-            )
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    user = await auth_service.check_access(creds=access_token.credentials)
+
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    session = await session_service.get_session(session_id)
+    if session:
+        if await session_service.delete_session(session_id):
+            return status.HTTP_200_OK
+
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Unauthorized"
+        )
 
 
 PageSizeType = Optional[conint(ge=1)]
@@ -77,23 +81,24 @@ async def get_user_sessions(
     """
     Retrieve user's session history with optional pagination and activity filter.
     """
-    if access_token:
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            user_uuid = UUID(user.get("user_id"))
-            sessions = await session_service.get_sessions_by_user(user_uuid)
-            if not sessions:
-                return []
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-            # Optional pagination logic
-            start = (page_number - 1) * page_size
-            end = start + page_size
-
-            return sessions[start:end]
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    user_uuid = UUID(user.get("user_id"))
+    sessions = await session_service.get_sessions_by_user(user_uuid)
+    if not sessions:
+        return []
+
+    # Optional pagination logic
+    start = (page_number - 1) * page_size
+    end = start + page_size
+
+    return sessions[start:end]
 
 
 @router.post(
@@ -119,20 +124,19 @@ async def add_role_to_user(
     """
     Add a role to a user.
     """
-    if access_token:
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            try:
-                msg = await user_service.add_role_to_user(user_id, role_id)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
-                )
-            return {"message": msg}
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    try:
+        msg = await user_service.add_role_to_user(user_id, role_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return {"message": msg}
 
 
 @router.delete(
@@ -158,21 +162,20 @@ async def take_away_role_from_user(
     """
     Remove a role from a user.
     """
-    if access_token:
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            try:
-                msg = await user_service.remove_role_from_user(user_id, role_id)
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
-                )
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-            return {"message": msg}
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    try:
+        msg = await user_service.remove_role_from_user(user_id, role_id)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    return {"message": msg}
 
 
 @router.get(
@@ -194,21 +197,22 @@ async def get_user_info(
     """
     Retrieve current user's information.
     """
-    if access_token:
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            user_uuid = UUID(user.get("user_id"))
-            user_info = await user_service.get_current_user(user_uuid)
-            if not user_info:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
-                )
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
-            return user_info
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    user_uuid = UUID(user.get("user_id"))
+    user_info = await user_service.get_current_user(user_uuid)
+    if not user_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    return user_info
 
 
 @router.patch(
@@ -231,19 +235,17 @@ async def patch_current_user(
     """
     Update the current user's profile.
     """
-    if access_token:
-        user = await auth_service.check_access(creds=access_token.credentials)
-        if user:
-            try:
-                user_uuid = UUID(user.get("user_id"))
-                updated_user = await user_service.update_user(user_uuid, body)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND, detail=str(e)
-                )
-            return updated_user
+    if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
+    user = await auth_service.check_access(creds=access_token.credentials)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="User not authenticated"
         )
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    try:
+        user_uuid = UUID(user.get("user_id"))
+        updated_user = await user_service.update_user(user_uuid, body)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    return updated_user

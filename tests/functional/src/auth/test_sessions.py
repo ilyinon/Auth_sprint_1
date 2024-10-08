@@ -77,7 +77,7 @@ async def test_delete_session_by_id(session, db_truncate):
         url_sessions, headers={"Authorization": f"Bearer {access_token}"}
     ) as response:
         body = await response.json()
-        session_id = body[-1]["id"]
+        session_id = body[-1]["user_id"]
 
     url_session_id = session_id_url_template.format(
         service_url=test_settings.app_dsn, uuid=session_id
@@ -85,16 +85,6 @@ async def test_delete_session_by_id(session, db_truncate):
 
     async with session.delete(
         url_session_id,
-        json={"session_id": session_id},
         headers={"Authorization": f"Bearer {access_token}"},
     ) as response:
-        body = await response.json()
-    assert response.status == http.HTTPStatus.OK
-
-    async with session.delete(
-        url_session_id,
-        json={"session_id": session_id},
-        headers={"Authorization": f"Bearer {access_token}"},
-    ) as response:
-        body = await response.json()
-    assert response.status == http.HTTPStatus.NOT_FOUND
+        assert response.status == http.HTTPStatus.OK

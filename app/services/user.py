@@ -63,7 +63,7 @@ class UserService:
     async def delete_user(self, user_id: UUID) -> None:
         await self.db.delete(user_id, User)
 
-    async def add_role_to_user(self, user_id: UUID, role_id: UUID) -> None:
+    async def add_role_to_user(self, user_id: UUID, role_id: UUID) -> str:
         user = await self.db.get_by_id(user_id, User)
         if not user:
             raise ValueError("User not found")
@@ -78,7 +78,7 @@ class UserService:
 
         return f"Role {role_id} assigned succesfully to User {user_id}"
 
-    async def remove_role_from_user(self, user_id: UUID, role_id: UUID) -> None:
+    async def remove_role_from_user(self, user_id: UUID, role_id: UUID) -> str:
         user = await self.db.get_by_id(user_id, User)
         if not user:
             raise ValueError("User not found")
