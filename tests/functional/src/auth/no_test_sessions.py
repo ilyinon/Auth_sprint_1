@@ -11,7 +11,8 @@ pytestmark = pytest.mark.asyncio
 fake = Faker()
 
 auth_url_template = "{service_url}/api/v1/auth/{endpoint}"
-users_url_template = "{service_url}/api/v1/users/"
+sessions_url_template = "{service_url}/api/v1/users/sessions"
+session_id_url_template = "{service_url}/api/v1/users/sessions/{uuid}"
 
 
 headers = {"Content-Type": "application/json"}
@@ -19,9 +20,11 @@ headers = {"Content-Type": "application/json"}
 url_signup = auth_url_template.format(
     service_url=test_settings.app_dsn, endpoint="signup"
 )
-url_users = users_url_template.format(service_url=test_settings.app_dsn, endpoint="")
 url_login = auth_url_template.format(
     service_url=test_settings.app_dsn, endpoint="login"
+)
+url_sessions = sessions_url_template.format(
+    service_url=test_settings.app_dsn, endpoint=""
 )
 
 
@@ -32,16 +35,16 @@ user = {
     "username": fake.simple_profile()["username"],
 }
 
-login_data = {"email": user["email"], "password": user["password"]}
+admin_login_data = {"email": user["email"], "password": user["password"]}
 
 
-async def test_get_user_profile_wo_creds(session, db_truncate):
-    async with session.get(url_users) as response:
+async def test_get_sessions_wo_creds(session):
+    async with session.get(url_sessions) as response:
 
         assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
-async def test_get_user_profile(session, db_truncate):
+async def test_get_sessions(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
@@ -52,14 +55,15 @@ async def test_get_user_profile(session, db_truncate):
         access_token = body["access_token"]
 
     async with session.get(
-        url_users, headers={"Authorization": f"Bearer {access_token}"}
+        url_sessions, headers={"Authorization": f"Bearer {access_token}"}
     ) as response:
         body = await response.json()
 
     assert response.status == http.HTTPStatus.OK
+    assert isinstance(body[-1]["id"], str)
 
 
-async def test_update_user_profile(session, db_truncate):
+async def test_delete_session_by_id(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
@@ -69,36 +73,28 @@ async def test_update_user_profile(session, db_truncate):
         body = await response.json()
         access_token = body["access_token"]
 
-    new_username = fake.simple_profile()["username"]
-    async with session.patch(
-        url_users,
-        json={"username": new_username},
-        headers={"Authorization": f"Bearer {access_token}"},
-    ) as response:
-        body = await response.json()
-    assert response.status == http.HTTPStatus.OK
-
-    new_passord = fake.password()
-    async with session.patch(
-        url_users,
-        json={"password": new_passord},
-        headers={"Authorization": f"Bearer {access_token}"},
-    ) as response:
-        body = await response.json()
-    assert response.status == http.HTTPStatus.OK
-
     async with session.get(
-        url_users, headers={"Authorization": f"Bearer {access_token}"}
+        url_sessions, headers={"Authorization": f"Bearer {access_token}"}
     ) as response:
         body = await response.json()
+        session_id = body[-1]["id"]
 
-    assert body["username"] == new_username
+    url_session_id = session_id_url_template.format(
+        service_url=test_settings.app_dsn, uuid=session_id
+    )
 
-    login_data["password"] = new_passord
-    # async with session.post(url_login, json=login_data) as response:
+    async with session.delete(
+        url_session_id,
+        json={"session_id": session_id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    ) as response:
+        body = await response.json()
+    assert response.status == http.HTTPStatus.OK
 
-    #     body = await response.json()
-
-    #     assert response.status == http.HTTPStatus.OK
-    #     assert isinstance(body["access_token"], str)
-    #     assert isinstance(body["refresh_token"], str)
+    async with session.delete(
+        url_session_id,
+        json={"session_id": session_id},
+        headers={"Authorization": f"Bearer {access_token}"},
+    ) as response:
+        body = await response.json()
+    assert response.status == http.HTTPStatus.NOT_FOUND

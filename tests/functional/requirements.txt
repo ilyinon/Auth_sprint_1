@@ -8,5 +8,17 @@ aiologger==0.7.0
 Faker==30.1.0
 async-fastapi-jwt-auth==0.6.6
 SQLAlchemy-Ext==0.2
-psycopg2-binary==2.9.9
+
 asyncpg==0.29.0
+testcontainers==4.8.1
+testcontainers[postgres]
+pytest-alembic==0.11.1
+pytest-postgresql==6.1.1
+# psycopg-binary
+psycopg2-binary
+# psycopg-pool
+# psycopg
+
+Werkzeug==3.0.4
+#psycopg-c
+pytest_mock_resources==2.12.1

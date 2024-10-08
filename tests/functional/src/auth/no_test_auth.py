@@ -44,7 +44,7 @@ user = {
 login_data = {"email": user["email"], "password": user["password"]}
 
 
-async def test_registration(session, db_truncate):
+async def test_registration(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
@@ -89,7 +89,7 @@ async def test_registration(session, db_truncate):
         ),
     ],
 )
-async def test_register_validation(session, user, db_truncate):
+async def test_register_validation(session, user):
 
     async with session.post(url_signup, json=user) as response:
 

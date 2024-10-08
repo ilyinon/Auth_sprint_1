@@ -8,13 +8,27 @@ ENV PYTHONPATH '/opt/tests'
 
 WORKDIR /opt
 
-COPY requirements.txt /opt/requirements.txt
+RUN apt-get update && apt-get install postgresql sudo -y && \
+addgroup --gid 1000 nonroot && \
+adduser --uid 1000 --gid 1000 --disabled-password --gecos "" nonroot && \
+echo 'nonroot ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+COPY --chown=nonroot:nonroot  tests/functional/requirements.txt /opt/requirements.txt
 RUN  pip install --upgrade pip \
      && pip install --no-cache-dir -r /opt/requirements.txt
 
-COPY . /opt/tests/functional
+COPY --chown=nonroot:nonroot tests/functional/ /opt/tests/functional
+COPY --chown=nonroot:nonroot app/models/* /opt/tests/models/
+COPY --chown=nonroot:nonroot app/core/config.py /opt/tests/core/
+COPY --chown=nonroot:nonroot app/alembic/* /opt/alembic/
+COPY --chown=nonroot:nonroot app/alembic.ini /opt/
+
 RUN mv /opt/tests/functional/conftest.py /opt/tests/conftest.py && \
-    mv /opt/tests/functional/fixtures /opt/tests/
+    mv /opt/tests/functional/fixtures /opt/tests/ && \
+    chmod -R 755 /opt/tests
+
+
+USER nonroot
 
 
 ENTRYPOINT find /opt/tests && python3 -m pytest tests -vvv --disable-warnings
