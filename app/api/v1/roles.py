@@ -36,18 +36,18 @@ async def list_roles(
 ) -> Union[List[RoleResponse], HTTPExceptionResponse]:
 
     if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    logger.info(f"Check access for {access_token.credentials}")
+
+    if not await auth_service.check_access_with_roles(
+        access_token.credentials, roles_with_allowed
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
-    logger.info(f"Check access for {access_token.credentials}")
 
-    if await auth_service.check_access_with_roles(
-        access_token.credentials, roles_with_allowed
-    ):
-
-        return await role_service.list_roles()
-
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    return await role_service.list_roles()
 
 
 @router.post(
@@ -72,19 +72,17 @@ async def create_role(
     Create role
     """
     if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    if not await auth_service.check_access_with_roles(
+        access_token.credentials, roles_with_allowed
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
-    logger.info(f"Check access for {access_token.credentials}")
-
-    if await auth_service.check_access_with_roles(
-        access_token.credentials, roles_with_allowed
-    ):
-        new_role = await role_service.create_role(body)
-        if new_role:
-            return new_role
-
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    new_role = await role_service.create_role(body)
+    if new_role:
+        return new_role
 
 
 @router.delete(
@@ -109,20 +107,19 @@ async def delete_role(
     Delete role
     """
     if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    logger.info(f"Check access for {access_token.credentials}")
+
+    if not await auth_service.check_access_with_roles(
+        access_token.credentials, roles_with_allowed
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
-    
-    logger.info(f"Check access for {access_token.credentials}")
-
-    if await auth_service.check_access_with_roles(
-        access_token.credentials, roles_with_allowed
-    ):
-        if await role_service.get_role_by_id(role_id):
-            role_service.delete_role(role_id)
-            return status.HTTP_200_OK
-        
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    if await role_service.get_role_by_id(role_id):
+        role_service.delete_role(role_id)
+        return status.HTTP_200_OK
 
 
 @router.patch(
@@ -148,20 +145,20 @@ async def change_role(
     Change role
     """
     if not access_token:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+    logger.info(f"Check access for {access_token.credentials}")
+
+    if not await auth_service.check_access_with_roles(
+        access_token.credentials, roles_with_allowed
+    ):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
         )
-    logger.info(f"Check access for {access_token.credentials}")
-
-    if await auth_service.check_access_with_roles(
-        access_token.credentials, roles_with_allowed
-    ):
-        if not await role_service.get_role_by_id(role_id):
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
-            )
-        updated_role = await role_service.update_role(role_id, body)
-        if updated_role:
-            return updated_role
-                
-    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+    if not await role_service.get_role_by_id(role_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Role not found"
+        )
+    updated_role = await role_service.update_role(role_id, body)
+    if updated_role:
+        return updated_role

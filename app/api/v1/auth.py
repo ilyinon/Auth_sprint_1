@@ -134,9 +134,7 @@ async def logout(
     This only logs out if the user-agent matches the session's recorded user-agent.
     """
     if not access_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-        )
+        raise HTTPException(status_code=status.status.HTTP_422_UNPROCESSABLE_ENTITY)
 
     user_agent = request.headers.get("user-agent", "Unknown")
     user = await auth_service.check_access(creds=access_token.credentials)
@@ -188,9 +186,7 @@ async def refresh_tokens(
     logger.info(f"Refresh token with token {refresh_token}")
 
     if not refresh_token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized"
-        )
+        raise HTTPException(status_code=status.status.HTTP_422_UNPROCESSABLE_ENTITY)
     logger.info(f"token to refresh {refresh_token}")
 
     decoded_token = await auth_service.decode_jwt(refresh_token)
@@ -219,6 +215,10 @@ async def refresh_tokens(
                     )
 
                 return tokens
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Session not found for matching user-agent",
+    )
 
 
 @router.get(
