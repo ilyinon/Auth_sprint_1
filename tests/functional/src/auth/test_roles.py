@@ -6,7 +6,11 @@ from faker import Faker
 from tests.functional.settings import test_settings
 
 pytestmark = pytest.mark.asyncio
-
+from sqlalchemy import create_engine, select
+from tests.models.role import Role, UserRole
+from tests.models.session import Session
+from tests.models.token import Token
+from tests.models.user import User
 
 fake = Faker()
 
@@ -36,13 +40,26 @@ admin_user = {
 admin_login_data = {"email": admin_user["email"], "password": admin_user["password"]}
 
 
-async def test_get_all_roles_wo_creds(session, db_truncate):
+async def test_get_all_roles_wo_creds(session, get_db):
+
+    user = User(
+        email=admin_user["email"],
+        password=admin_user["password"],
+        username=admin_user["username"],
+        full_name=admin_user["full_name"],
+    )
+    get_db.add(user)
+    get_db.commit()
+    get_db.refresh(user)
+
+    user = get_db.query(User).first()
+    # assert user.email == admin_user["email"]
     async with session.get(url_roles) as response:
 
         assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
-async def test_get_all_roles_not_admin(session, db_truncate):
+async def test_get_all_roles_not_admin(session):
     async with session.post(url_signup, json=admin_user) as response:
 
         body = await response.json()
@@ -58,10 +75,3 @@ async def test_get_all_roles_not_admin(session, db_truncate):
         await response.json()
 
     assert response.status == http.HTTPStatus.UNAUTHORIZED
-
-
-# async def test_list_all_roles(session, db_truncate):
-#     async with session.post(url_signup, json=admin_user) as response:
-
-#         body = await response.json()
-#         assert response.status == http.HTTPStatus.OK

@@ -1,28 +1,52 @@
+from uuid import UUID, uuid4
+
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.sql import text
+from tests.models.base import Base
+from tests.models.user import User
 
 from tests.functional.settings import test_settings
 
-from sqlalchemy.ext.asyncio import create_async_engine  # isort: skip
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker  # isort: skip
 
-Base = declarative_base()
+@pytest.fixture(scope="session")
+@pytest.mark.alembic_auto_upsgrade  # Добавляем маркер Alembic
+def engine():
+    engine = create_engine(test_settings.database_dsn_not_async)
+    Base.metadata.create_all(bind=engine)
 
-engine = create_async_engine(test_settings.database_dsn, echo=True, future=True)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    yield engine
+
+    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture(scope="session")
-async def db() -> AsyncSession:
-    async with async_session() as pg_session:
-        yield pg_session
+def tables(engine):
+    alembic_cfg = Config()
+    alembic_cfg.set_main_option("script_location", "/opt/alembic")
+    alembic_cfg.set_main_option("sqlalchemy.url", str(engine.url))
+
+    command.upgrade(alembic_cfg, "head")
+    try:
+        command.upgrade(alembic_cfg, "head")
+    except Exception as e:
+        print(e)
+    import traceback
+
+    traceback.print_exc()
+
+    yield
+    command.downgrade(alembic_cfg, "base")
 
 
-@pytest.fixture(autouse=True)
-async def db_truncate(db: AsyncSession):
-    """Truncate data in PG before each test."""
-    for table in ["users", "roles", "user_roles"]:
-        await db.execute(text(f"TRUNCATE {table} CASCADE"))
-    await db.commit()
+@pytest.fixture(scope="session")
+def get_db(engine):
+    SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

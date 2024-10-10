@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 
-class Session(IdMixin, TimestampMixin, Base):
+class Session(Base, IdMixin, TimestampMixin):
     __tablename__ = "sessions"
 
     user_id = Column(

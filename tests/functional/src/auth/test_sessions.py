@@ -38,13 +38,13 @@ user = {
 admin_login_data = {"email": user["email"], "password": user["password"]}
 
 
-async def test_get_sessions_wo_creds(session, db_truncate):
+async def test_get_sessions_wo_creds(session):
     async with session.get(url_sessions) as response:
 
         assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
-async def test_get_sessions(session, db_truncate):
+async def test_get_sessions(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
@@ -63,7 +63,7 @@ async def test_get_sessions(session, db_truncate):
     assert isinstance(body[-1]["id"], str)
 
 
-async def test_delete_session_by_id(session, db_truncate):
+async def test_delete_session_by_id(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()

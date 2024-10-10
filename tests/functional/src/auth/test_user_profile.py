@@ -35,13 +35,13 @@ user = {
 login_data = {"email": user["email"], "password": user["password"]}
 
 
-async def test_get_user_profile_wo_creds(session, db_truncate):
+async def test_get_user_profile_wo_creds(session):
     async with session.get(url_users) as response:
 
         assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
-async def test_get_user_profile(session, db_truncate):
+async def test_get_user_profile(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
@@ -59,7 +59,7 @@ async def test_get_user_profile(session, db_truncate):
     assert response.status == http.HTTPStatus.OK
 
 
-async def test_update_user_profile(session, db_truncate):
+async def test_update_user_profile(session):
     async with session.post(url_signup, json=user) as response:
 
         body = await response.json()
