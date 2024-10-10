@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
 
-class User(IdMixin, TimestampMixin, Base):
+class User(Base, TimestampMixin, IdMixin):
     __tablename__ = "users"
 
     email = Column(String, unique=True, nullable=False)

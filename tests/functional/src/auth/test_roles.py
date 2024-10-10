@@ -40,42 +40,38 @@ admin_user = {
 admin_login_data = {"email": admin_user["email"], "password": admin_user["password"]}
 
 
-async def test_get_all_roles_wo_creds(session, admin_role):
-    result = admin_role()
+async def test_get_all_roles_wo_creds(session, get_db):
 
-    # s =  db_session()
-    # for obj in await create_test_data:
-    #     s.add(obj)
-    # s.commit()
+    user = User(
+        email=admin_user["email"],
+        password=admin_user["password"],
+        username=admin_user["username"],
+        full_name=admin_user["full_name"],
+    )
+    get_db.add(user)
+    get_db.commit()
+    get_db.refresh(user)
 
-    # query_result = s.execute(select(User)).all()
-    # s.close()
+    user = get_db.query(User).first()
+    # assert user.email == admin_user["email"]
+    async with session.get(url_roles) as response:
 
-    with session.get(url_roles) as response:
-        assert result == http.HTTPStatus.UNPROCESSABLE_ENTITY
         assert response.status == http.HTTPStatus.UNPROCESSABLE_ENTITY
 
 
-# async def test_get_all_roles_not_admin(session):
-#     async with session.post(url_signup, json=admin_user) as response:
+async def test_get_all_roles_not_admin(session):
+    async with session.post(url_signup, json=admin_user) as response:
 
-#         body = await response.json()
+        body = await response.json()
 
-#     async with session.post(url_login, json=admin_user) as response:
+    async with session.post(url_login, json=admin_user) as response:
 
-#         body = await response.json()
-#         access_token = body["access_token"]
+        body = await response.json()
+        access_token = body["access_token"]
 
-#     async with session.get(
-#         url_roles, headers={"Authorization": f"Bearer {access_token}"}
-#     ) as response:
-#         await response.json()
+    async with session.get(
+        url_roles, headers={"Authorization": f"Bearer {access_token}"}
+    ) as response:
+        await response.json()
 
-#     assert response.status == http.HTTPStatus.UNAUTHORIZED
-
-
-# async def test_list_all_roles(session):
-#     async with session.post(url_signup, json=admin_user) as response:
-
-#         body = await response.json()
-#         assert response.status == http.HTTPStatus.OK
+    assert response.status == http.HTTPStatus.UNAUTHORIZED

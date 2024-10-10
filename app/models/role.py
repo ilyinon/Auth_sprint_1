@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 
-class Role(IdMixin, TimestampMixin, Base):
+class Role(Base, TimestampMixin, IdMixin):
     __tablename__ = "roles"
 
     name = Column(String, unique=True, nullable=False)

@@ -21,6 +21,8 @@ services:
   db_test:
     image: postgres:16.3-alpine
     restart: unless-stopped
+    env_file:
+      - ./.env_test
     environment:
       - POSTGRES_USER=${PG_USER}
       - POSTGRES_PASSWORD=${PG_PASSWORD}
@@ -35,6 +37,8 @@ services:
   redis_test:
     image: redis:7.4.0
     restart: unless-stopped
+    env_file:
+      - ./.env_test
     volumes:
       - redis_data:/data
     healthcheck:

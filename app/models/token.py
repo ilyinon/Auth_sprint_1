@@ -8,7 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 
-class Token(IdMixin, Base):
+class Token(Base, IdMixin):
     __tablename__ = "tokens"
 
     user_id = Column(
